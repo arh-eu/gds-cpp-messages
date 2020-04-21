@@ -312,7 +312,7 @@ struct GdsLoginReplyMessage : public GdsACKMessage {
 /*2*/
 struct GdsEventMessage : public GdsMessageData {
   std::string                                       operations;
-  std::map<int32_t, byte_array>                     binaryContents;
+  std::map<std::string, byte_array>                 binaryContents;
   std::vector<std::vector<std::map<int32_t, bool>>> priorityLevels;
 
   inline GdsMsgType::Enum type() const noexcept override {

@@ -732,10 +732,11 @@ void GdsEventMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   packer.pack(binaryContents);
   packer.pack(priorityLevels);
 }
+
 void GdsEventMessage::unpack(const msgpack::object &packer) {
   std::vector<msgpack::object> data = packer.as<std::vector<msgpack::object>>();
   operations = data.at(0).as<std::string>();
-  binaryContents = data.at(1).as<std::map<int32_t, byte_array>>();
+  binaryContents = data.at(1).as<std::map<std::string, byte_array>>();
   priorityLevels =
       data.at(2).as<std::vector<std::vector<std::map<int32_t, bool>>>>();
   validate();
@@ -823,6 +824,7 @@ void GdsAttachmentRequestReplyMessage::unpack(const msgpack::object &packer) {
   std::vector<msgpack::object> data = packer.as<std::vector<msgpack::object>>();
   ackStatus = data.at(0).as<int32_t>();
   if (!data.at(1).is_nil()) {
+    request = AttachmentRequestBody();
     request->unpack(data.at(1));
   } else {
     request.reset();
