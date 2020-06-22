@@ -16,12 +16,12 @@ cd ..
 
 The code has three additional libraries as its dependencies:
   - Asio 1.12.2
-  - msgpack for C++ (3.2.0) (github repository [here](https://github.com/msgpack/msgpack-c/tree/cpp-3.2.0)).
-  - Simple WebSocket (forked at 4th of November, 2019 from [here](https://gitlab.com/eidheim/Simple-WebSocket-Server)).
+  - msgpack for C++ (version used: 3.2.0) (github repository [here](https://github.com/msgpack/msgpack-c/tree/cpp-3.2.0)).
+  - Simple WebSocket (forked / copied at 4th of November, 2019 from [here](https://gitlab.com/eidheim/Simple-WebSocket-Server)).
   
 These are attached to our code, but please keep in mind that they have recursive dependencies as well (like OpenSSL and Boost).
 
-Newer versions might work, but its not guaranteed to be fully compatible with our code.
+Newer versions might work as well, but its not guaranteed to be fully compatible with our code.
 
 ## Usage
 
