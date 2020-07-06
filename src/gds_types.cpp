@@ -218,6 +218,51 @@ void GdsFieldValue::unpack(const msgpack::object &obj) {
 
 void GdsFieldValue::validate() const {}
 
+
+std::string GdsFieldValue::as_string() const {
+  std::stringstream ss;
+  switch (type) {
+  case msgpack::type::NIL:
+    ss << "null";
+    break;
+  case msgpack::type::BOOLEAN:
+    ss << (as<bool>() ? "true" : "false");
+    break;
+  case msgpack::type::POSITIVE_INTEGER:
+    ss << as<uint64_t>();
+    break;
+  case msgpack::type::NEGATIVE_INTEGER:
+    ss << as<int64_t>();
+    break;
+  case msgpack::type::FLOAT32:
+    ss << as<float>();
+    break;
+  case msgpack::type::FLOAT64:
+    ss << as<double>();
+    break;
+  case msgpack::type::STR:
+    ss << as<std::string>();
+    break;
+  case msgpack::type::BIN:
+    ss << "<" << as<byte_array>().size() << "bytes>";
+    break;
+  case msgpack::type::ARRAY: {
+    std::vector<GdsFieldValue> items = as<std::vector<GdsFieldValue>>();
+    for (auto &obj : items) {
+      ss << obj.as_string();
+    }
+  } break;
+  case msgpack::type::MAP:
+    //packer.pack(as<std::map<std::string, std::string>>());
+    break;
+  default:
+    break;
+  }
+  return ss.str();
+}
+
+
+
 void EventReplyBody::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   for (auto &eventResult : results) {
@@ -620,7 +665,21 @@ void QueryReplyBody::validate() const {
 void GdsLoginMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
 
-  packer.pack_array(reserved_fields.has_value() ? 5 : 4);
+  size_t message_size = 4;
+  if(cluster_name.has_value()){
+    message_size += 1;
+  }
+
+  if(reserved_fields.has_value()){
+    message_size += 1;
+  }
+
+  packer.pack_array(message_size);
+  
+  if(cluster_name.has_value()){
+    packer.pack(cluster_name.value());
+  }
+
   serve_on_the_same_connection ? packer.pack_true() : packer.pack_false();
   packer.pack_int32(protocol_version_number);
   if (fragmentation_supported) {
@@ -641,18 +700,23 @@ void GdsLoginMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
 
 void GdsLoginMessage::unpack(const msgpack::object &packer) {
   std::vector<msgpack::object> data = packer.as<std::vector<msgpack::object>>();
-
-  serve_on_the_same_connection = data.at(0).as<bool>();
-  protocol_version_number = data.at(1).as<int32_t>();
-  fragmentation_supported = data.at(2).as<bool>();
-  if (fragmentation_supported) {
-    fragment_transmission_unit = data.at(3).as<int32_t>();
-  } else {
-    fragment_transmission_unit.reset();
+  size_t idx = 0;
+  if(data.at(0).type == msgpack::type::STR){
+    cluster_name = data.at(idx++).as<std::string>();
   }
 
-  if (data.size() == 5) {
-    reserved_fields = data.at(4).as<std::vector<std::string>>();
+  serve_on_the_same_connection = data.at(idx++).as<bool>();
+  protocol_version_number = data.at(idx++).as<int32_t>();
+  fragmentation_supported = data.at(idx++).as<bool>();
+  if (fragmentation_supported) {
+    fragment_transmission_unit = data.at(idx++).as<int32_t>();
+  } else {
+    fragment_transmission_unit.reset();
+    idx++;
+  }
+
+  if (data.size() > idx) {
+    reserved_fields = data.at(idx).as<std::vector<std::string>>();
   } else {
     reserved_fields.reset();
   }
@@ -700,11 +764,11 @@ void GdsLoginReplyMessage::unpack(const msgpack::object &packer) {
   loginReply.reset();
   errorDetails.reset();
 
-  if (data.at(1).type == msgpack::type::ARRAY) {
+  if (200 == ackStatus && data.at(1).type == msgpack::type::ARRAY) {
     GdsLoginMessage loginmessage;
     loginmessage.unpack(data.at(1));
     loginReply = loginmessage;
-  } else if (data.at(1).type == msgpack::type::MAP) {
+  } else if (401 == ackStatus && data.at(1).type == msgpack::type::MAP) {
     errorDetails = data.at(1).as<std::map<int32_t, std::string>>();
   }
 

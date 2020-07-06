@@ -44,6 +44,7 @@ void GDSConnection::sendMessage(const gds_lib::gds_types::GdsMessage &msg) {
     mOutMessages.push(msg);
     mOutSemaphore.notify();
   } catch (const gds_types::invalid_message_error &e) {
+    std::cerr << "Invalid format on the outgoing message!" << std::endl;
     mGDSCallback.msgErrorCallback(e);
   }
 }
@@ -83,6 +84,7 @@ void GDSConnection::onMessage(ws_connection_sptr /*connection*/,
 
 void GDSConnection::onClose(ws_connection_sptr /*connection*/, int status,
                             const std::string &reason) {
+  std::cerr << "Closing websocket: " << reason << std::endl;
   close();
 }
 
@@ -107,8 +109,10 @@ void GDSConnection::inTreadFunc() {
           msg.unpack(replyMsg);
           mGDSCallback.msgCallback(msg);
         } catch (gds_lib::gds_types::invalid_message_error &e) {
+          std::cerr << "Invalid format on the incoming message!" << std::endl;
           mGDSCallback.msgErrorCallback(e);
         } catch (msgpack::type_error &e) {
+          std::cerr << "MessagePack type error on the incoming message.." << std::endl;
           mGDSCallback.msgErrorCallback(
               gds_lib::gds_types::invalid_message_error(
                   gds_lib::gds_types::GdsMsgType::UNKNOWN, e.what()));

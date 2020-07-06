@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <sstream>
 #include <vector>
 
 #include <msgpack.hpp>
@@ -149,6 +150,8 @@ struct GdsFieldValue : public Packable {
   std::any                   value;
   msgpack::type::object_type type;
   template <typename T> T    as() const { return std::any_cast<T>(value); }
+  std::string as_string() const;
+
   void pack(msgpack::packer<msgpack::sbuffer> &) const override;
   void unpack(const msgpack::object &) override;
   void validate() const override;
@@ -282,6 +285,7 @@ struct GdsACKMessage : public GdsMessageData {
 
 /*0*/
 struct GdsLoginMessage : public GdsMessageData {
+  std::optional<std::string>              cluster_name;
   bool                                    serve_on_the_same_connection;
   int32_t                                 protocol_version_number;
   bool                                    fragmentation_supported;
