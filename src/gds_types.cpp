@@ -2,24 +2,112 @@
 
 #include <iostream>
 
-namespace gds_lib {
-namespace gds_types {
 
-void GdsMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
-  validate();
-  packer.pack_array(11);
-  packer.pack(userName);
-  packer.pack(messageId);
-  packer.pack_int64(createTime);
-  packer.pack_int64(requestTime);
-  if (isFragmented) {
-    packer.pack_true();
-    packer.pack(firstFragment.value());
-    packer.pack(lastFragment.value());
-    packer.pack(offset.value());
-    packer.pack(fds.value());
-  } else {
-    packer.pack_false();
+template <typename OStream>
+static OStream& operator<<(OStream& os, const gds_lib::gds_types::Stringable& str)
+{
+  os << str.to_string();
+  return os;
+}
+
+
+template <typename OStream, typename T>
+static OStream& operator<<(OStream& os, const std::optional<T>& opt)
+{
+  if(opt)
+  {
+    os << opt.value();
+  }
+  else
+  {
+    os << "null";
+  }
+  return os;
+}
+
+
+template <typename OStream, typename T>
+static OStream& operator<<(OStream& os, const std::vector<T>& items)
+{
+  os << '[';
+  auto it = items.begin();
+  if(it != items.end())
+  {
+    os << *it;
+    ++it;
+    while(it != items.end())
+    {
+      os << ", " << *it;
+      ++it;
+    }
+  }
+  os << ']';
+  return os;
+}
+
+
+
+template <typename OStream>
+static OStream& operator<<(OStream& os, const gds_lib::gds_types::byte_array& items)
+{
+  os << '<' << items.size() << " bytes>";
+  return os;
+}
+
+template <typename OStream, typename T, std::size_t N>
+static OStream& operator<<(OStream& os, const std::array<T, N>& array){
+  os << '[';
+  if(!array.empty())
+  {
+    os << array[0];
+    for(size_t ii = 0;ii<array.size();++ii)
+    {
+      os << ", " << array[ii];
+    }
+  }
+  os << ']';
+  return os;
+}
+
+template <typename OStream, typename K, typename V>
+static OStream& operator<<(OStream& os, const std::map<K,V>& items)
+{
+  os << '{';
+  auto it = items.begin();
+  if(it != items.end())
+  {
+    os << it->first << ": " << it->second;
+    ++it;
+    while(it != items.end())
+    {
+      os << ", " << it->first << ": " << it->second;
+      ++it;
+    }
+  }
+  os << '}';
+  return os;
+}
+
+
+
+namespace gds_lib {
+  namespace gds_types {
+
+    void GdsMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
+      validate();
+      packer.pack_array(11);
+      packer.pack(userName);
+      packer.pack(messageId);
+      packer.pack_int64(createTime);
+      packer.pack_int64(requestTime);
+      if (isFragmented) {
+        packer.pack_true();
+        packer.pack(firstFragment.value());
+        packer.pack(lastFragment.value());
+        packer.pack(offset.value());
+        packer.pack(fds.value());
+      } else {
+        packer.pack_false();
     packer.pack_nil(); // first fragmented
     packer.pack_nil(); // last fragmented
     packer.pack_nil(); // offset
@@ -42,9 +130,9 @@ void GdsMessage::unpack(const msgpack::object &object) {
   isFragmented = data.at(gds_types::GdsHeader::FRAGMENTED).as<bool>();
   if (isFragmented) {
     firstFragment =
-        data.at(gds_types::GdsHeader::FIRST_FRAGMENT).as<std::string>();
+    data.at(gds_types::GdsHeader::FIRST_FRAGMENT).as<std::string>();
     lastFragment =
-        data.at(gds_types::GdsHeader::LAST_FRAGMENT).as<std::string>();
+    data.at(gds_types::GdsHeader::LAST_FRAGMENT).as<std::string>();
     offset = data.at(gds_types::GdsHeader::OFFSET).as<int32_t>();
     fds = data.at(gds_types::GdsHeader::FULL_DATA_SIZE).as<int32_t>();
   } else {
@@ -57,53 +145,53 @@ void GdsMessage::unpack(const msgpack::object &object) {
 
   switch (dataType) {
   case gds_types::GdsMsgType::LOGIN: // Type 0
-    messageBody.reset(new GdsLoginMessage());
-    break;
+  messageBody.reset(new GdsLoginMessage());
+  break;
   case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
-    messageBody.reset(new GdsLoginReplyMessage());
-    break;
+  messageBody.reset(new GdsLoginReplyMessage());
+  break;
   case gds_types::GdsMsgType::EVENT: // Type 2
-    messageBody.reset(new GdsEventMessage());
-    break;
+  messageBody.reset(new GdsEventMessage());
+  break;
   case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
-    messageBody.reset(new GdsEventReplyMessage());
-    break;
+  messageBody.reset(new GdsEventReplyMessage());
+  break;
   case gds_types::GdsMsgType::ATTACHMENT_REQUEST: // Type 4
-    messageBody.reset(new GdsAttachmentRequestMessage());
-    break;
+  messageBody.reset(new GdsAttachmentRequestMessage());
+  break;
   case gds_types::GdsMsgType::ATTACHMENT_REQUEST_REPLY: // Type 5
-    messageBody.reset(new GdsAttachmentRequestReplyMessage());
-    break;
+  messageBody.reset(new GdsAttachmentRequestReplyMessage());
+  break;
   case gds_types::GdsMsgType::ATTACHMENT: // Type 6
-    messageBody.reset(new GdsAttachmentResponseMessage());
-    break;
+  messageBody.reset(new GdsAttachmentResponseMessage());
+  break;
   case gds_types::GdsMsgType::ATTACHMENT_REPLY: // Type 7
-    messageBody.reset(new GdsAttachmentResponseResultMessage());
-    break;
+  messageBody.reset(new GdsAttachmentResponseResultMessage());
+  break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT: // Type 8
-    messageBody.reset(new GdsEventDocumentMessage());
-    break;
+  messageBody.reset(new GdsEventDocumentMessage());
+  break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT_REPLY: // Type 9
-    messageBody.reset(new GdsEventDocumentReplyMessage());
-    break;
+  messageBody.reset(new GdsEventDocumentReplyMessage());
+  break;
   case gds_types::GdsMsgType::QUERY: // Type 10
-    messageBody.reset(new GdsQueryRequestMessage());
-    break;
+  messageBody.reset(new GdsQueryRequestMessage());
+  break;
   case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
-    messageBody.reset(new GdsQueryReplyMessage());
-    break;
+  messageBody.reset(new GdsQueryReplyMessage());
+  break;
   case gds_types::GdsMsgType::GET_NEXT_QUERY: // Type 12
-    messageBody.reset(new GdsNextQueryRequestMessage());
-    break;
+  messageBody.reset(new GdsNextQueryRequestMessage());
+  break;
   default:
-    messageBody.reset();
-    break;
-  }
-  if (messageBody) {
-    messageBody->unpack(data.at(gds_types::GdsHeader::DATA));
-  }
+  messageBody.reset();
+  break;
+}
+if (messageBody) {
+  messageBody->unpack(data.at(gds_types::GdsHeader::DATA));
+}
 
-  validate();
+validate();
 }
 
 void GdsMessage::validate() const {
@@ -112,60 +200,89 @@ void GdsMessage::validate() const {
   }
   if (isFragmented) {
     if (!(firstFragment.has_value() && lastFragment.has_value() &&
-          offset.has_value() && fds.has_value())) {
+      offset.has_value() && fds.has_value())) {
       throw invalid_message_error(GdsMsgType::HEADER_MESSAGE);
-    }
-  } else {
-    if ((firstFragment.has_value() || lastFragment.has_value() ||
-         offset.has_value() || fds.has_value())) {
-      throw invalid_message_error(GdsMsgType::HEADER_MESSAGE);
-    }
   }
-  if (dataType < 0 || dataType > 14) {
+} else {
+  if ((firstFragment.has_value() || lastFragment.has_value() ||
+   offset.has_value() || fds.has_value())) {
     throw invalid_message_error(GdsMsgType::HEADER_MESSAGE);
-  }
-  if (messageBody) {
-    messageBody->validate();
-  }
 }
+}
+if (dataType < 0 || dataType > 14) {
+  throw invalid_message_error(GdsMsgType::HEADER_MESSAGE);
+}
+if (messageBody) {
+  messageBody->validate();
+}
+}
+
+std::string GdsMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << std::boolalpha;
+  ss << '[';
+  ss << userName;
+  ss << ", " << messageId;
+  ss << ", " << createTime;
+  ss << ", " << requestTime;
+  ss << ", " << isFragmented;
+  ss << ", " << firstFragment;
+  ss << ", " << lastFragment;
+  ss << ", " << offset;
+  ss << ", " << fds;
+  ss << ", " << dataType;
+  if(messageBody)
+  {
+    ss << ", " << messageBody->to_string();
+  }
+  else
+  {
+    ss << ", null";
+  }
+
+  ss << ']';
+  return ss.str();
+}
+
 
 void GdsFieldValue::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   switch (type) {
-  case msgpack::type::NIL:
+    case msgpack::type::NIL:
     packer.pack_nil();
     break;
-  case msgpack::type::BOOLEAN:
+    case msgpack::type::BOOLEAN:
     as<bool>() ? packer.pack_true() : packer.pack_false();
     break;
-  case msgpack::type::POSITIVE_INTEGER:
+    case msgpack::type::POSITIVE_INTEGER:
     packer.pack_uint64(as<uint64_t>());
     break;
-  case msgpack::type::NEGATIVE_INTEGER:
+    case msgpack::type::NEGATIVE_INTEGER:
     packer.pack_int64(as<int64_t>());
     break;
-  case msgpack::type::FLOAT32:
+    case msgpack::type::FLOAT32:
     packer.pack_float(as<float>());
     break;
-  case msgpack::type::FLOAT64:
+    case msgpack::type::FLOAT64:
     packer.pack_double(as<double>());
     break;
-  case msgpack::type::STR:
+    case msgpack::type::STR:
     packer.pack(as<std::string>());
     break;
-  case msgpack::type::BIN:
+    case msgpack::type::BIN:
     packer.pack(as<byte_array>());
     break;
-  case msgpack::type::ARRAY: {
-    std::vector<GdsFieldValue> items = as<std::vector<GdsFieldValue>>();
-    packer.pack_array(items.size());
-    for (auto &obj : items) {
-      obj.pack(packer);
-    }
-  } break;
-  case msgpack::type::MAP:
+    case msgpack::type::ARRAY: {
+      std::vector<GdsFieldValue> items = as<std::vector<GdsFieldValue>>();
+      packer.pack_array(items.size());
+      for (auto &obj : items) {
+        obj.pack(packer);
+      }
+    } break;
+    case msgpack::type::MAP:
     packer.pack(as<std::map<std::string, std::string>>());
     break;
-  default:
+    default:
     throw invalid_message_error(GdsMsgType::UNKNOWN);
   }
 }
@@ -173,45 +290,45 @@ void GdsFieldValue::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
 void GdsFieldValue::unpack(const msgpack::object &obj) {
   type = obj.type;
   switch (obj.type) {
-  case msgpack::type::NIL:
+    case msgpack::type::NIL:
     value = std::nullopt;
     break;
-  case msgpack::type::BOOLEAN:
+    case msgpack::type::BOOLEAN:
     value = obj.as<bool>();
     break;
-  case msgpack::type::POSITIVE_INTEGER:
+    case msgpack::type::POSITIVE_INTEGER:
     value = obj.as<uint64_t>();
     break;
-  case msgpack::type::NEGATIVE_INTEGER:
+    case msgpack::type::NEGATIVE_INTEGER:
     value = obj.as<int64_t>();
     break;
-  case msgpack::type::FLOAT32:
+    case msgpack::type::FLOAT32:
     value = obj.as<float>();
     break;
-  case msgpack::type::FLOAT64:
+    case msgpack::type::FLOAT64:
     value = obj.as<double>();
     break;
-  case msgpack::type::STR:
+    case msgpack::type::STR:
     value = obj.as<std::string>();
     break;
-  case msgpack::type::BIN:
+    case msgpack::type::BIN:
     value = obj.as<byte_array>();
     break;
-  case msgpack::type::ARRAY: {
-    std::vector<msgpack::object> items = obj.as<std::vector<msgpack::object>>();
-    std::vector<GdsFieldValue>   values;
-    values.reserve(items.size());
-    for (auto &object : items) {
-      GdsFieldValue current;
-      current.unpack(object);
-      values.emplace_back(current);
-    }
-    value = values;
-  } break;
-  case msgpack::type::MAP:
+    case msgpack::type::ARRAY: {
+      std::vector<msgpack::object> items = obj.as<std::vector<msgpack::object>>();
+      std::vector<GdsFieldValue>   values;
+      values.reserve(items.size());
+      for (auto &object : items) {
+        GdsFieldValue current;
+        current.unpack(object);
+        values.emplace_back(current);
+      }
+      value = values;
+    } break;
+    case msgpack::type::MAP:
     value = obj.as<std::map<std::string, std::string>>();
     break;
-  default:
+    default:
     throw invalid_message_error(GdsMsgType::UNKNOWN);
   }
 }
@@ -219,43 +336,41 @@ void GdsFieldValue::unpack(const msgpack::object &obj) {
 void GdsFieldValue::validate() const {}
 
 
-std::string GdsFieldValue::as_string() const {
+std::string GdsFieldValue::to_string() const {
   std::stringstream ss;
   switch (type) {
-  case msgpack::type::NIL:
+    case msgpack::type::NIL:
     ss << "null";
     break;
-  case msgpack::type::BOOLEAN:
+    case msgpack::type::BOOLEAN:
     ss << (as<bool>() ? "true" : "false");
     break;
-  case msgpack::type::POSITIVE_INTEGER:
+    case msgpack::type::POSITIVE_INTEGER:
     ss << as<uint64_t>();
     break;
-  case msgpack::type::NEGATIVE_INTEGER:
+    case msgpack::type::NEGATIVE_INTEGER:
     ss << as<int64_t>();
     break;
-  case msgpack::type::FLOAT32:
+    case msgpack::type::FLOAT32:
     ss << as<float>();
     break;
-  case msgpack::type::FLOAT64:
+    case msgpack::type::FLOAT64:
     ss << as<double>();
     break;
-  case msgpack::type::STR:
+    case msgpack::type::STR:
     ss << as<std::string>();
     break;
-  case msgpack::type::BIN:
+    case msgpack::type::BIN:
     ss << "<" << as<byte_array>().size() << "bytes>";
     break;
-  case msgpack::type::ARRAY: {
-    std::vector<GdsFieldValue> items = as<std::vector<GdsFieldValue>>();
-    for (auto &obj : items) {
-      ss << obj.as_string();
-    }
-  } break;
-  case msgpack::type::MAP:
+    case msgpack::type::ARRAY: {
+      std::vector<GdsFieldValue> items = as<std::vector<GdsFieldValue>>();
+      ss << items;
+    } break;
+    case msgpack::type::MAP:
     //packer.pack(as<std::map<std::string, std::string>>());
     break;
-  default:
+    default:
     break;
   }
   return ss.str();
@@ -318,13 +433,13 @@ void EventReplyBody::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
 
 void EventReplyBody::unpack(const msgpack::object &packer) {
   std::vector<msgpack::object> eventResults =
-      packer.as<std::vector<msgpack::object>>();
+  packer.as<std::vector<msgpack::object>>();
 
   results.reserve(eventResults.size());
 
   for (auto &object : eventResults) {
     std::vector<msgpack::object> currentData =
-        object.as<std::vector<msgpack::object>>();
+    object.as<std::vector<msgpack::object>>();
 
     GdsEventResult currentResult;
 
@@ -333,15 +448,15 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
       currentResult.notification = currentData.at(1).as<std::string>();
     }
     currentResult.fieldDescriptor =
-        currentData.at(2).as<std::vector<field_descriptor>>();
+    currentData.at(2).as<std::vector<field_descriptor>>();
 
     std::vector<msgpack::object> subResults =
-        currentData.at(3).as<std::vector<msgpack::object>>();
+    currentData.at(3).as<std::vector<msgpack::object>>();
     currentResult.subResults.reserve(subResults.size());
 
     for (auto &subResultObj : subResults) {
       std::vector<msgpack::object> subRes =
-          subResultObj.as<std::vector<msgpack::object>>();
+      subResultObj.as<std::vector<msgpack::object>>();
       EventSubResult currentSubResult;
 
       currentSubResult.status = subRes.at(0).as<int32_t>();
@@ -363,7 +478,7 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
       }
 
       std::vector<msgpack::object> fieldValues =
-          subRes.at(5).as<std::vector<msgpack::object>>();
+      subRes.at(5).as<std::vector<msgpack::object>>();
 
       currentSubResult.values = std::vector<GdsFieldValue>();
       currentSubResult.values.value().reserve(fieldValues.size());
@@ -385,6 +500,16 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
 void EventReplyBody::validate() const {
   // skip
 }
+
+
+
+std::string EventReplyBody::to_string() const
+{
+  std::stringstream ss;
+  ss << results;
+  return ss.str();
+}
+
 
 void AttachmentResult::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
@@ -432,7 +557,7 @@ void AttachmentResult::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
 
 void AttachmentResult::unpack(const msgpack::object &packer) {
   std::map<std::string, msgpack::object> obj =
-      packer.as<std::map<std::string, msgpack::object>>();
+  packer.as<std::map<std::string, msgpack::object>>();
 
   requestIDs = obj.at("requestids").as<std::vector<std::string>>();
   ownerTable = obj.at("ownertable").as<std::string>();
@@ -455,8 +580,26 @@ void AttachmentResult::unpack(const msgpack::object &packer) {
 }
 void AttachmentResult::validate() const {}
 
+
+std::string AttachmentResult::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << requestIDs;
+  ss << ", " << ownerTable;
+  ss << ", " << attachmentID;
+  ss << ", " << ownerIDs;
+  ss << ", " << meta;
+  ss << ", " << ttl;
+  ss << ", " << to_valid;
+  ss << ']';
+  return ss.str();
+}
+
+
+
 void AttachmentRequestBody::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(3);
   packer.pack_int32(status);
@@ -481,6 +624,20 @@ void AttachmentRequestBody::unpack(const msgpack::object &packer) {
 }
 void AttachmentRequestBody::validate() const {}
 
+
+std::string AttachmentRequestBody::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << status;
+  ss << ", " << result;
+  ss << ", " << waitTime;
+  ss << ']';
+  return ss.str();
+}
+
+
+
 void AttachmentResponse::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_map(3);
@@ -494,7 +651,7 @@ void AttachmentResponse::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
 
 void AttachmentResponse::unpack(const msgpack::object &packer) {
   std::map<std::string, msgpack::object> obj =
-      packer.as<std::map<std::string, msgpack::object>>();
+  packer.as<std::map<std::string, msgpack::object>>();
 
   requestIDs = obj.at("requestids").as<std::vector<std::string>>();
   ownerTable = obj.at("ownertable").as<std::string>();
@@ -503,8 +660,21 @@ void AttachmentResponse::unpack(const msgpack::object &packer) {
 }
 void AttachmentResponse::validate() const {}
 
+
+std::string AttachmentResponse::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << requestIDs;
+  ss << ", " << ownerTable;
+  ss << ", " << attachmentID;
+  ss << ']';
+  return ss.str();
+}
+
+
 void AttachmentResponseBody::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(2);
   packer.pack_int32(status);
@@ -519,8 +689,20 @@ void AttachmentResponseBody::unpack(const msgpack::object &packer) {
 }
 void AttachmentResponseBody::validate() const { result.validate(); }
 
+
+std::string AttachmentResponseBody::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << status;
+  ss << ", " << result;
+  ss << ']';
+  return ss.str();
+}
+
+
 void EventDocumentResult::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(3);
   packer.pack_int32(status_code);
@@ -542,8 +724,21 @@ void EventDocumentResult::unpack(const msgpack::object &object) {
 }
 void EventDocumentResult::validate() const {}
 
+
+std::string EventDocumentResult::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << status_code;
+  ss << ", " << notification;
+  ss << ", " << returnings;
+  ss << ']';
+  return ss.str();
+}
+
+
 void QueryContextDescriptor::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   packer.pack_array(9);
 
   packer.pack(scroll_id);
@@ -576,12 +771,12 @@ void QueryContextDescriptor::unpack(const msgpack::object &object) {
   last_bucket_id = data.at(5).as<std::string>();
 
   std::vector<std::string> gdsholders =
-      data.at(6).as<std::vector<std::string>>();
+  data.at(6).as<std::vector<std::string>>();
   gds_holder[0] = gdsholders.at(0);
   gds_holder[1] = gdsholders.at(1);
 
   std::vector<msgpack::object> fieldvalues =
-      data.at(7).as<std::vector<msgpack::object>>();
+  data.at(7).as<std::vector<msgpack::object>>();
   fieldvalues.clear();
   field_values.reserve(fieldvalues.size());
   for (auto &val : fieldvalues) {
@@ -593,6 +788,25 @@ void QueryContextDescriptor::unpack(const msgpack::object &object) {
 }
 
 void QueryContextDescriptor::validate() const {}
+
+
+std::string QueryContextDescriptor::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << scroll_id;
+  ss << ", " << select_query;
+  ss << ", " << delivered_hits;
+  ss << ", " << query_start_time;
+  ss << ", " << consistency_type;
+  ss << ", " << last_bucket_id;
+  ss << ", " << gds_holder;
+  ss << ", " << field_values;
+  ss << ", " << partition_names;
+  ss << ']';
+  return ss.str();
+}
+
 
 void QueryReplyBody::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
@@ -625,7 +839,7 @@ void QueryReplyBody::unpack(const msgpack::object &obj) {
   hasMorePages = items.at(2).as<bool>();
   queryContextDescriptor.unpack(items.at(3));
   std::vector<msgpack::object> fielddescriptors =
-      items.at(4).as<std::vector<msgpack::object>>();
+  items.at(4).as<std::vector<msgpack::object>>();
   fieldDescriptors.reserve(fielddescriptors.size());
   for (auto &item : fielddescriptors) {
     std::vector<std::string> data = item.as<std::vector<std::string>>();
@@ -637,11 +851,11 @@ void QueryReplyBody::unpack(const msgpack::object &obj) {
   }
 
   std::vector<msgpack::object> values =
-      items.at(5).as<std::vector<msgpack::object>>();
+  items.at(5).as<std::vector<msgpack::object>>();
   hits.reserve(values.size());
   for (auto &object : values) {
     std::vector<msgpack::object> row =
-        object.as<std::vector<msgpack::object>>();
+    object.as<std::vector<msgpack::object>>();
     std::vector<GdsFieldValue> currenthit;
     currenthit.reserve(row.size());
     for (auto &val : row) {
@@ -660,6 +874,23 @@ void QueryReplyBody::validate() const {
     throw invalid_message_error(GdsMsgType::QUERY_REPLY);
   }
 }
+
+
+std::string QueryReplyBody::to_string() const
+{
+  std::stringstream ss;
+  ss << std::boolalpha;
+  ss << '[';
+  ss << numberOfHits;
+  ss << ", " << filteredHits;
+  ss << ", " << hasMorePages;
+  ss << ", " << queryContextDescriptor;
+  ss << ", " << fieldDescriptors;
+  ss << ", " << hits;
+  ss << ']';
+  return ss.str();
+}
+
 
 /*0*/
 void GdsLoginMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
@@ -734,9 +965,32 @@ void GdsLoginMessage::validate() const {
   }
 }
 
+
+std::string GdsLoginMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << std::boolalpha;
+  ss << '[';
+  if(cluster_name){
+    ss << cluster_name << ", ";
+  }
+  ss << serve_on_the_same_connection;
+  ss << ", " << protocol_version_number;
+  ss << ", " << fragmentation_supported;
+  ss << ", " << fragment_transmission_unit;
+  if(reserved_fields)
+  {
+    ss << ", " << reserved_fields;
+  }
+
+  ss << ']';
+  return ss.str();
+}
+
+
 /*1*/
 void GdsLoginReplyMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(3);
   packer.pack_int32(ackStatus);
@@ -788,6 +1042,23 @@ void GdsLoginReplyMessage::validate() const {
   }
 }
 
+
+std::string GdsLoginReplyMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << ackStatus;
+  if(loginReply){
+    ss << ", " << loginReply;
+  }else{
+    ss << ", " << errorDetails;
+  }
+  ss << ackException;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*2*/
 void GdsEventMessage::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
@@ -802,7 +1073,7 @@ void GdsEventMessage::unpack(const msgpack::object &packer) {
   operations = data.at(0).as<std::string>();
   binaryContents = data.at(1).as<std::map<std::string, byte_array>>();
   priorityLevels =
-      data.at(2).as<std::vector<std::vector<std::map<int32_t, bool>>>>();
+  data.at(2).as<std::vector<std::vector<std::map<int32_t, bool>>>>();
   validate();
 }
 
@@ -810,9 +1081,22 @@ void GdsEventMessage::validate() const {
   // skip, nothing specific here
 }
 
+
+std::string GdsEventMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << operations;
+  ss << ", " << binaryContents;
+  ss << ", " << priorityLevels;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*3*/
 void GdsEventReplyMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
 
   packer.pack_array(3);
@@ -852,9 +1136,53 @@ void GdsEventReplyMessage::validate() const {
   // skip
 }
 
+std::string GdsEventReplyMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << ackStatus;
+  ss << ", " << reply;
+  ss << ", " << ackException;
+  ss << ']';
+  return ss.str();
+}
+
+
+
+std::string EventReplyBody::EventSubResult::to_string() const
+{
+  std::stringstream ss;
+  ss << std::boolalpha;
+  ss << '[';
+  ss << status;
+  ss << ", " << id;
+  ss << ", " << tableName;
+  ss << ", " << created;
+  ss << ", " << version;
+  ss << ", " << values;
+  ss << ']';
+  return ss.str();
+}
+
+
+std::string EventReplyBody::GdsEventResult::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << status;
+  ss << ", " << notification;
+  ss << ", " << fieldDescriptor;
+  ss << ", " << subResults;
+  ss << ']';
+  return ss.str();
+}
+
+
+
+
 /*4*/
 void GdsAttachmentRequestMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack(request);
 }
@@ -866,9 +1194,19 @@ void GdsAttachmentRequestMessage::validate() const {
   // skip
 }
 
+std::string GdsAttachmentRequestMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << request;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*5*/
 void GdsAttachmentRequestReplyMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(3);
   packer.pack_int32(ackStatus);
@@ -907,9 +1245,22 @@ void GdsAttachmentRequestReplyMessage::validate() const {
   }
 }
 
+
+std::string GdsAttachmentRequestReplyMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << ackStatus;
+  ss << ", " << request;
+  ss << ", " << ackException;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*6*/
 void GdsAttachmentResponseMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(1);
   result.pack(packer);
@@ -922,9 +1273,20 @@ void GdsAttachmentResponseMessage::unpack(const msgpack::object &packer) {
 }
 void GdsAttachmentResponseMessage::validate() const { result.validate(); }
 
+
+std::string GdsAttachmentResponseMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << result;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*7*/
 void GdsAttachmentResponseResultMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(3);
   packer.pack_int32(ackStatus);
@@ -967,9 +1329,23 @@ void GdsAttachmentResponseResultMessage::validate() const {
   }
 }
 
+
+std::string GdsAttachmentResponseResultMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << ackStatus;
+  ss << ", " << response;
+  ss << ", " << ackException;
+  ss << ']';
+  return ss.str();
+}
+
+
+
 /*8*/
 void GdsEventDocumentMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(4);
   packer.pack(tableName);
@@ -997,7 +1373,7 @@ void GdsEventDocumentMessage::unpack(const msgpack::object &packer) {
   tableName = obj.at(0).as<std::string>();
 
   std::vector<msgpack::object> fielddescriptors =
-      obj.at(1).as<std::vector<msgpack::object>>();
+  obj.at(1).as<std::vector<msgpack::object>>();
   fieldDescriptors.reserve(fielddescriptors.size());
   for (auto &item : fielddescriptors) {
     std::vector<std::string> data = item.as<std::vector<std::string>>();
@@ -1009,11 +1385,11 @@ void GdsEventDocumentMessage::unpack(const msgpack::object &packer) {
   }
 
   std::vector<msgpack::object> values =
-      obj.at(2).as<std::vector<msgpack::object>>();
+  obj.at(2).as<std::vector<msgpack::object>>();
   records.reserve(values.size());
   for (auto &object : values) {
     std::vector<msgpack::object> row =
-        object.as<std::vector<msgpack::object>>();
+    object.as<std::vector<msgpack::object>>();
     std::vector<GdsFieldValue> currenthit;
     currenthit.reserve(row.size());
     for (auto &val : row) {
@@ -1037,9 +1413,24 @@ void GdsEventDocumentMessage::validate() const {
   }
 }
 
+
+std::string GdsEventDocumentMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << tableName;
+  ss << ", " << fieldDescriptors;
+  ss << ", " << records;
+  ss << ", " << returnings;
+  ss << ']';
+  return ss.str();
+}
+
+
+
 /*9*/
 void GdsEventDocumentReplyMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
 
   packer.pack_array(3);
@@ -1066,7 +1457,7 @@ void GdsEventDocumentReplyMessage::unpack(const msgpack::object &packer) {
   ackStatus = data.at(0).as<int32_t>();
   if (!data.at(1).is_nil()) {
     std::vector<msgpack::object> items =
-        data.at(1).as<std::vector<msgpack::object>>();
+    data.at(1).as<std::vector<msgpack::object>>();
     std::vector<EventDocumentResult> _results;
     _results.reserve(items.size());
     for (auto &object : items) {
@@ -1090,9 +1481,21 @@ void GdsEventDocumentReplyMessage::validate() const {
   // skip
 }
 
+std::string GdsEventDocumentReplyMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << ackStatus;
+  ss << ", " << results;
+  ss << ", " << ackException;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*10*/
 void GdsQueryRequestMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   if (queryPageSize.has_value() && queryType.has_value()) {
     packer.pack_array(5);
@@ -1127,9 +1530,26 @@ void GdsQueryRequestMessage::validate() const {
   }
 }
 
+
+std::string GdsQueryRequestMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << selectString;
+  ss << ", " << consistency;
+  ss << ", " << timeout;
+  if(queryPageSize && queryType){
+    ss << ", " << queryPageSize.value();
+    ss << ", " << queryType.value();
+  }
+  ss << ']';
+  return ss.str();
+}
+
+
 /*11*/
 void GdsQueryReplyMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(3);
   packer.pack_int32(ackStatus);
@@ -1171,9 +1591,22 @@ void GdsQueryReplyMessage::validate() const {
   }
 }
 
+
+std::string GdsQueryReplyMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << ackStatus;
+  ss << ", " << response;
+  ss << ", " << ackException;
+  ss << ']';
+  return ss.str();
+}
+
+
 /*12*/
 void GdsNextQueryRequestMessage::pack(
-    msgpack::packer<msgpack::sbuffer> &packer) const {
+  msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
   packer.pack_array(2);
   contextDescriptor.pack(packer);
@@ -1189,6 +1622,17 @@ void GdsNextQueryRequestMessage::unpack(const msgpack::object &obj) {
 void GdsNextQueryRequestMessage::validate() const {
   // skip
 }
+
+std::string GdsNextQueryRequestMessage::to_string() const
+{
+  std::stringstream ss;
+  ss << '[';
+  ss << contextDescriptor;
+  ss << ", " << timeout;
+  ss << ']';
+  return ss.str();
+}
+
 
 } // namespace gds_types
 } // namespace gds_lib
