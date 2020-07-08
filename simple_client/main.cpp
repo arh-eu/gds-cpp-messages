@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 
 #include "simple_gds_client.hpp"
 
@@ -8,14 +9,22 @@ int main(int argc, char* argv[]) {
 
   if(parser.parse())
   {
-    std::cout << "Argument parsing successful, starting GDS client.." << std::endl;
-    try{
-      SimpleGDSClient client(parser);
-      client.run();
-    }
-    catch(const std::exception& e)
+    if(parser.has_arg("hex"))
     {
-      std::cout << e.what() << std::endl;
+      std::string original = parser.get_arg("hex");
+      std::cout << "The hex value of '" << original <<"' is: 0x" << SimpleGDSClient::to_hex(original) << std::endl;
+    }
+    else
+    {
+      std::cout << "Argument parsing successful, starting GDS client.." << std::endl;
+      try{
+        SimpleGDSClient client(parser);
+        client.run();
+      }
+      catch(const std::exception& e)
+      {
+        std::cout << e.what() << std::endl;
+      }
     }
 
   }

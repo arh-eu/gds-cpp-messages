@@ -1,7 +1,11 @@
 #include "simple_gds_client.hpp"
 
 #include <chrono>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include <utility>
+
 #include "gds_uuid.hpp"
 
 using namespace gds_lib;
@@ -56,11 +60,20 @@ void SimpleGDSClient::setupConnection()
 }
 
 void SimpleGDSClient::run() {
-  
+
   if(args.has_arg("query") || args.has_arg("queryall"))
   {
     std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
     send_query(query_string);
+  }
+  else if (args.has_arg("event"))
+  {
+    std::string event_string = args.get_arg("event");
+    std::string file_list;
+    if(args.has_arg("files")){
+      file_list = args.get_arg("files");
+    }
+    send_event(event_string, file_list);
   }
 
   if(!nextMsgReceived.wait_for(timeout))
@@ -70,18 +83,11 @@ void SimpleGDSClient::run() {
 }
 
 void SimpleGDSClient::login() {
-  int64_t currentTime = now();
+  GdsMessage fullMessage = create_default_message();
 
-  gds_lib::gds_types::GdsMessage fullMessage;
-  fullMessage.userName = args.get_arg("username");
-  fullMessage.messageId = uuid::generate_uuid_v4();
-  fullMessage.createTime = currentTime;
-  fullMessage.requestTime = currentTime;
-  fullMessage.isFragmented = false;
-  fullMessage.dataType = gds_lib::gds_types::GdsMsgType::LOGIN;
+  fullMessage.dataType = GdsMsgType::LOGIN;
 
-  std::shared_ptr<gds_lib::gds_types::GdsLoginMessage> loginBody(
-    new gds_lib::gds_types::GdsLoginMessage());
+  std::shared_ptr<GdsLoginMessage> loginBody(new GdsLoginMessage());
   {
     loginBody->serve_on_the_same_connection = false;
     loginBody->protocol_version_number = (2 << 16 | 9);
@@ -93,19 +99,11 @@ void SimpleGDSClient::login() {
 
 void SimpleGDSClient::send_query(const std::string& query_str)
 {
-  
-  int64_t currentTime = now();
+  GdsMessage fullMessage = create_default_message();
 
-  gds_lib::gds_types::GdsMessage fullMessage;
-  fullMessage.userName = args.get_arg("username");
-  fullMessage.messageId = uuid::generate_uuid_v4();
-  fullMessage.createTime = currentTime;
-  fullMessage.requestTime = currentTime;
-  fullMessage.isFragmented = false;
-  fullMessage.dataType = gds_lib::gds_types::GdsMsgType::QUERY;
+  fullMessage.dataType = GdsMsgType::QUERY;
 
-  std::shared_ptr<gds_lib::gds_types::GdsQueryRequestMessage> selectBody(
-    new gds_lib::gds_types::GdsQueryRequestMessage());
+  std::shared_ptr<GdsQueryRequestMessage> selectBody(new GdsQueryRequestMessage());
   {
     selectBody->selectString = query_str;
     selectBody->consistency = "PAGES";
@@ -117,6 +115,81 @@ void SimpleGDSClient::send_query(const std::string& query_str)
   mGDSInterface->sendMessage(fullMessage);
 }
 
+
+void SimpleGDSClient::send_event(const std::string& event_str, const std::string& file_list)
+{
+
+  GdsMessage fullMessage = create_default_message(); 
+  fullMessage.dataType = GdsMsgType::EVENT;
+
+  std::shared_ptr<GdsEventMessage> eventBody(new GdsEventMessage());
+  {
+    eventBody->operations = event_str;
+    if(file_list.length() != 0){
+      std::map<std::string, byte_array> binaries;
+
+      const static std::string delimiter {";"};
+      auto start = 0U;
+      auto end = file_list.find(delimiter);
+      if(end == std::string::npos){
+        end = file_list.length();
+      }
+
+
+      while(end != std::string::npos)
+      {
+        std::string filename = file_list.substr(start, end-start);
+        std::string filepath = "attachments/";
+        filepath += filename;
+
+        std::basic_ifstream<std::uint8_t> file(filepath, std::ios::binary|std::ios::ate);
+        if(file.is_open())
+        {
+          auto pos = file.tellg();
+
+          byte_array content;
+          content.reserve(pos);
+          std::cout << "Reserved " << pos << " bytes" << std::endl;
+
+          file.seekg(0, std::ios::beg);
+          content.resize(pos);
+          file.read(content.data(), pos);
+
+          binaries[SimpleGDSClient::to_hex(filename)] = content;
+          std::cout << "Adding " << filename << " as an attachment.." << std::endl;
+        }
+        else
+        {
+          std::cout << "Could not open '" << filename <<"'!";
+        }
+
+        start  = end + 1;
+        end = file_list.find(delimiter, start);
+      }
+
+      eventBody->binaryContents = binaries;
+    }
+  }
+  fullMessage.messageBody = eventBody;
+
+  std::cout << "Trying to send the EVENT message to be sent for GDS:" << std::endl << fullMessage.to_string() << std::endl;
+  std::cout << "Trying to send the EVENT message to the GDS.." << std::endl;
+  mGDSInterface->sendMessage(fullMessage);
+}
+
+gds_lib::gds_types::GdsMessage SimpleGDSClient::create_default_message()
+{
+  int64_t currentTime = now();
+  gds_lib::gds_types::GdsMessage fullMessage;
+
+  fullMessage.userName = args.get_arg("username");
+  fullMessage.messageId = uuid::generate_uuid_v4();
+  fullMessage.createTime = currentTime;
+  fullMessage.requestTime = currentTime;
+  fullMessage.isFragmented = false;
+
+  return fullMessage;
+}
 
 
 void SimpleGDSClient::onMessageReceived(
@@ -167,6 +240,17 @@ void SimpleGDSClient::onMessageReceived(
 }
 }
 
+
+std::string SimpleGDSClient::to_hex(const std::string& src)
+{
+  std::stringstream ss;
+  for(auto ch : src)
+  {
+    ss << std::hex << (int)ch;
+  }
+  return ss.str();
+}
+
 void SimpleGDSClient::handleLoginReply(
     GdsMessage & /*fullMessage*/,
   std::shared_ptr<GdsLoginReplyMessage> &loginReply) {
@@ -181,13 +265,16 @@ void SimpleGDSClient::handleLoginReply(
 }
 
 void SimpleGDSClient::handleEventReply(
-    GdsMessage & /*fullMessage*/,
+    GdsMessage & fullMessage,
   std::shared_ptr<GdsEventReplyMessage> &eventReply) {
   // do whatever you want to do with this.
 
   std::cout << "CLIENT received an EVENT reply message! ";
   std::cout << "Event reply status code is: " << eventReply->ackStatus
   << std::endl;
+
+  std::cout << "Full message:" << std::endl;
+  std::cout << fullMessage.to_string() << std::endl;
   nextMsgReceived.notify();
 }
 
@@ -214,7 +301,7 @@ void SimpleGDSClient::handleAttachmentRequestReply(
 }
 
 void SimpleGDSClient::handleQueryReply(
-    GdsMessage & fullMessage,
+  GdsMessage & fullMessage,
   std::shared_ptr<GdsQueryReplyMessage> &queryReply) {
   // do whatever you want to do with this.
 
@@ -239,7 +326,7 @@ void SimpleGDSClient::handleQueryReply(
   }
    */
 
- nextMsgReceived.notify();
+  nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::onInvalidMessage(const std::exception &exc) {

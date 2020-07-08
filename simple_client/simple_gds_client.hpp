@@ -36,6 +36,7 @@ public:
 
   void run();
   void close();
+  static std::string to_hex(const std::string&);
 
 
 private:
@@ -46,8 +47,10 @@ private:
 
   void login();
   void send_query(const std::string&);
+  void send_event(const std::string&, const std::string&);
 
 
+  gds_lib::gds_types::GdsMessage create_default_message();
 
   gds_lib::gds_types::QueryContextDescriptor contextDescriptor;
   void

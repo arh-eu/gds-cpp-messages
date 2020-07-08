@@ -436,7 +436,6 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
   packer.as<std::vector<msgpack::object>>();
 
   results.reserve(eventResults.size());
-
   for (auto &object : eventResults) {
     std::vector<msgpack::object> currentData =
     object.as<std::vector<msgpack::object>>();
@@ -444,9 +443,10 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
     GdsEventResult currentResult;
 
     currentResult.status = currentData.at(0).as<int32_t>();
-    if (!currentData.at(0).is_nil()) {
+    if (!currentData.at(1).is_nil()) {
       currentResult.notification = currentData.at(1).as<std::string>();
     }
+
     currentResult.fieldDescriptor =
     currentData.at(2).as<std::vector<field_descriptor>>();
 
@@ -454,41 +454,47 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
     currentData.at(3).as<std::vector<msgpack::object>>();
     currentResult.subResults.reserve(subResults.size());
 
+
     for (auto &subResultObj : subResults) {
       std::vector<msgpack::object> subRes =
       subResultObj.as<std::vector<msgpack::object>>();
       EventSubResult currentSubResult;
 
       currentSubResult.status = subRes.at(0).as<int32_t>();
-
-      if (!subRes.at(1).is_nil()) {
+      
+      if (subRes.size()>1 && !subRes.at(1).is_nil()) {
         currentSubResult.id = subRes.at(1).as<std::string>();
       }
 
-      if (!subRes.at(2).is_nil()) {
+      if (subRes.size()>2 && !subRes.at(2).is_nil()) {
         currentSubResult.tableName = subRes.at(2).as<std::string>();
       }
 
-      if (!subRes.at(3).is_nil()) {
+      if (subRes.size()>3 && !subRes.at(3).is_nil()) {
         currentSubResult.created = subRes.at(3).as<bool>();
       }
 
-      if (!subRes.at(4).is_nil()) {
+      if (subRes.size()>4 && !subRes.at(4).is_nil()) {
         currentSubResult.version = subRes.at(4).as<int64_t>();
       }
 
-      std::vector<msgpack::object> fieldValues =
-      subRes.at(5).as<std::vector<msgpack::object>>();
+      if (subRes.size()>5 && !subRes.at(5).is_nil()) {
+        std::vector<msgpack::object> fieldValues =
+        subRes.at(5).as<std::vector<msgpack::object>>();
 
-      currentSubResult.values = std::vector<GdsFieldValue>();
-      currentSubResult.values.value().reserve(fieldValues.size());
-      for (auto &fieldValue : fieldValues) {
-        GdsFieldValue currentGDSFv;
-        currentGDSFv.unpack(fieldValue);
-        currentSubResult.values.value().emplace_back(currentGDSFv);
+
+        currentSubResult.values = std::vector<GdsFieldValue>();
+        currentSubResult.values.value().reserve(fieldValues.size());
+        for (auto &fieldValue : fieldValues) {
+          GdsFieldValue currentGDSFv;
+          currentGDSFv.unpack(fieldValue);
+          currentSubResult.values.value().emplace_back(currentGDSFv);
+        }
+
+        currentResult.subResults.emplace_back(currentSubResult);
       }
 
-      currentResult.subResults.emplace_back(currentSubResult);
+      std::cout << "EventSubResult: " << currentSubResult << std::endl;
     }
 
     results.emplace_back(currentResult);
@@ -1133,7 +1139,9 @@ void GdsEventReplyMessage::unpack(const msgpack::object &packer) {
 }
 
 void GdsEventReplyMessage::validate() const {
-  // skip
+  if(reply){
+    reply.value().validate();
+  }
 }
 
 std::string GdsEventReplyMessage::to_string() const
