@@ -10,11 +10,11 @@ using namespace gds_lib::gds_types;
 SimpleGDSClient::SimpleGDSClient(const ArgParser& _args) : args(_args) {
 
   callbacks.msgCallback = std::bind(&SimpleGDSClient::onMessageReceived,
-                                    this, std::placeholders::_1);
+    this, std::placeholders::_1);
   callbacks.msgErrorCallback = std::bind(&SimpleGDSClient::onInvalidMessage,
-                                         this, std::placeholders::_1);
+   this, std::placeholders::_1);
   callbacks.wsErrorCallback = std::bind(&SimpleGDSClient::onWebSocketError,
-                                        this, std::placeholders::_1);
+    this, std::placeholders::_1);
   callbacks.connReadyCallback = [this]() { this->connectionReady.notify(); };
   callbacks.wsClosedCallback = [this](const gds_types::WebsocketResult &) {
     this->connectionClosed.notify();
@@ -38,7 +38,7 @@ void SimpleGDSClient::close() {
 int64_t SimpleGDSClient::now() {
   using namespace std::chrono;
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-      .count();
+  .count();
 }
 
 void SimpleGDSClient::setupConnection()
@@ -56,7 +56,7 @@ void SimpleGDSClient::setupConnection()
 }
 
 void SimpleGDSClient::run() {
-    
+  
   if(args.has_arg("query") || args.has_arg("queryall"))
   {
     std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
@@ -81,7 +81,7 @@ void SimpleGDSClient::login() {
   fullMessage.dataType = gds_lib::gds_types::GdsMsgType::LOGIN;
 
   std::shared_ptr<gds_lib::gds_types::GdsLoginMessage> loginBody(
-      new gds_lib::gds_types::GdsLoginMessage());
+    new gds_lib::gds_types::GdsLoginMessage());
   {
     loginBody->serve_on_the_same_connection = false;
     loginBody->protocol_version_number = (2 << 16 | 9);
@@ -105,7 +105,7 @@ void SimpleGDSClient::send_query(const std::string& query_str)
   fullMessage.dataType = gds_lib::gds_types::GdsMsgType::QUERY;
 
   std::shared_ptr<gds_lib::gds_types::GdsQueryRequestMessage> selectBody(
-      new gds_lib::gds_types::GdsQueryRequestMessage());
+    new gds_lib::gds_types::GdsQueryRequestMessage());
   {
     selectBody->selectString = query_str;
     selectBody->consistency = "PAGES";
@@ -120,134 +120,138 @@ void SimpleGDSClient::send_query(const std::string& query_str)
 
 
 void SimpleGDSClient::onMessageReceived(
-    gds_lib::gds_types::GdsMessage &msg) {
+  gds_lib::gds_types::GdsMessage &msg) {
   switch (msg.dataType) {
   case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
   {
     std::shared_ptr<GdsLoginReplyMessage> body =
-        std::dynamic_pointer_cast<GdsLoginReplyMessage>(msg.messageBody);
+    std::dynamic_pointer_cast<GdsLoginReplyMessage>(msg.messageBody);
     handleLoginReply(msg, body);
   } break;
   case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
   {
     std::shared_ptr<GdsEventReplyMessage> body =
-        std::dynamic_pointer_cast<GdsEventReplyMessage>(msg.messageBody);
+    std::dynamic_pointer_cast<GdsEventReplyMessage>(msg.messageBody);
     handleEventReply(msg, body);
   } break;
   case gds_types::GdsMsgType::ATTACHMENT_REQUEST_REPLY: // Type 5
   {
     std::shared_ptr<GdsAttachmentRequestReplyMessage> body =
-        std::dynamic_pointer_cast<GdsAttachmentRequestReplyMessage>(
-            msg.messageBody);
+    std::dynamic_pointer_cast<GdsAttachmentRequestReplyMessage>(
+      msg.messageBody);
     handleAttachmentRequestReply(msg, body);
   } break;
   case gds_types::GdsMsgType::ATTACHMENT_REPLY: // Type 7
 
-    break;
+  break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT: // Type 8
 
-    break;
+  break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT_REPLY: // Type 9
   {
     std::shared_ptr<GdsEventDocumentReplyMessage> body =
-        std::dynamic_pointer_cast<GdsEventDocumentReplyMessage>(
-            msg.messageBody);
+    std::dynamic_pointer_cast<GdsEventDocumentReplyMessage>(
+      msg.messageBody);
     handleEventDocumentReply(msg, body);
   } break;
   case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
   {
     std::shared_ptr<GdsQueryReplyMessage> body =
-        std::dynamic_pointer_cast<GdsQueryReplyMessage>(msg.messageBody);
+    std::dynamic_pointer_cast<GdsQueryReplyMessage>(msg.messageBody);
     handleQueryReply(msg, body);
   } break;
-    break;
+  break;
   default:
 
-    break;
-  }
+  break;
+}
 }
 
 void SimpleGDSClient::handleLoginReply(
     GdsMessage & /*fullMessage*/,
-    std::shared_ptr<GdsLoginReplyMessage> &loginReply) {
+  std::shared_ptr<GdsLoginReplyMessage> &loginReply) {
 
-    if(loginReply->ackStatus == 200){
-      std::cout << "Login successful!" << std::endl;
-    }else{
-      std::cout <<"Error during the login!" << std::endl;
-    }
+  if(loginReply->ackStatus == 200){
+    std::cout << "Login successful!" << std::endl;
+  }else{
+    std::cout <<"Error during the login!" << std::endl;
+  }
 
-    loginReplySemaphore.notify();
+  loginReplySemaphore.notify();
 }
 
 void SimpleGDSClient::handleEventReply(
     GdsMessage & /*fullMessage*/,
-    std::shared_ptr<GdsEventReplyMessage> &eventReply) {
+  std::shared_ptr<GdsEventReplyMessage> &eventReply) {
   // do whatever you want to do with this.
 
   std::cout << "CLIENT received an EVENT reply message! ";
   std::cout << "Event reply status code is: " << eventReply->ackStatus
-            << std::endl;
+  << std::endl;
   nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::handleEventDocumentReply(
-    gds_lib::gds_types::GdsMessage &,
-    std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage>
-        &eventReply) {
+  gds_lib::gds_types::GdsMessage &,
+  std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage>
+  &eventReply) {
   // do whatever you want to do with this.
 
   std::cout << "CLIENT received an EVENT Document reply message! ";
   std::cout << "Event reply status code is: " << eventReply->ackStatus
-            << std::endl;
+  << std::endl;
   nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::handleAttachmentRequestReply(
-    gds_lib::gds_types::GdsMessage &,
-    std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage>
-        &replyBody) {
+  gds_lib::gds_types::GdsMessage &,
+  std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage>
+  &replyBody) {
   std::cout << "CLIENT received an AttachmentRequestReply message! "
-            << std::endl;
+  << std::endl;
   std::cout << "Global status code is: " << replyBody->ackStatus << std::endl;
   nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::handleQueryReply(
-    GdsMessage & /*fullMessage*/,
-    std::shared_ptr<GdsQueryReplyMessage> &queryReply) {
+    GdsMessage & fullMessage,
+  std::shared_ptr<GdsQueryReplyMessage> &queryReply) {
   // do whatever you want to do with this.
 
   std::cout << "CLIENT received a SELECT reply message! ";
   std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
 
+  std::cout << "Full message:" << std::endl;
+  std::cout << fullMessage.to_string() << std::endl;
+  /*
   if (queryReply->response) {
 
     std::cout << "The reply has: " << queryReply->response->numberOfHits
-              << " rows." << std::endl;
+    << " rows." << std::endl;
     std::cout << "First row: [ ";
     std::vector<std::vector<GdsFieldValue>> &hits = queryReply->response->hits;
 
     for (auto &col : hits[0]) {
-     std::cout << col.as_string() << ' ';
-    }
-    std::cout << ']' << std::endl;
-    contextDescriptor = queryReply->response->queryContextDescriptor;
+     std::cout << col.to_string() << ' ';
+   }
+   std::cout << ']' << std::endl;
+   contextDescriptor = queryReply->response->queryContextDescriptor;
   }
+   */
 
-  nextMsgReceived.notify();
+ nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::onInvalidMessage(const std::exception &exc) {
 
   std::cerr << "The structure of the message is invalid! Details: "
-            << exc.what() << std::endl;
+  << exc.what() << std::endl;
   nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::onWebSocketError(
-    const gds_types::WebsocketResult &result) {
+  const gds_types::WebsocketResult &result) {
 
   std::cerr << "WebSocket returned error code: " << result.status_code
-            << ", message: " << result.error_message << std::endl;
+  << ", message: " << result.error_message << std::endl;
 }

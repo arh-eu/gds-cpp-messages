@@ -52,19 +52,19 @@ private:
   gds_lib::gds_types::QueryContextDescriptor contextDescriptor;
   void
   handleLoginReply(gds_lib::gds_types::GdsMessage &,
-                   std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage> &);
+   std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage> &);
   void
-       handleEventReply(gds_lib::gds_types::GdsMessage &,
-                        std::shared_ptr<gds_lib::gds_types::GdsEventReplyMessage> &);
+  handleEventReply(gds_lib::gds_types::GdsMessage &,
+    std::shared_ptr<gds_lib::gds_types::GdsEventReplyMessage> &);
   void handleAttachmentRequestReply(
-      gds_lib::gds_types::GdsMessage &,
-      std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage> &);
-       void
-       handleEventDocumentReply(gds_lib::gds_types::GdsMessage &,
-                        std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage> &);
+    gds_lib::gds_types::GdsMessage &,
+    std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage> &);
+  void
+  handleEventDocumentReply(gds_lib::gds_types::GdsMessage &,
+    std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage> &);
   void
   handleQueryReply(gds_lib::gds_types::GdsMessage &,
-                   std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> &);
+   std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> &);
 
   void onMessageReceived(gds_lib::gds_types::GdsMessage &);
   void onInvalidMessage(const std::exception &);
