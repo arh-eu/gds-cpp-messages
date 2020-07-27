@@ -1,6 +1,6 @@
 CXX = g++
 
-CXX_INCLUDE_PATHS = -I./includes -isystem./submodules/asio/asio/include -isystem./submodules/msgpack/include -isystem./submodules/simple-websocket -I$(SOURCE_DIR)
+CXX_INCLUDE_PATHS = -I$(SOURCE_DIR)
 CXX_VERSION = -std=c++17
 
 CXX_FLAGS_DEFAULT = -Ofast -Wall -fPIC -Wall $(CXX_VERSION) $(CXX_INCLUDE_PATHS) \
@@ -53,8 +53,6 @@ shared: copy_includes $(LIB_DIR) $(BUILD_DIR) $(SOURCE_OBJECTS)
 
 # copy necessary includes
 copy_includes: $(INCLUDE_DIR)
-#	cp $(SOURCE_DIR)/gds_lib_config.hpp $(INCLUDE_DIR)
-#	cp $(SOURCE_DIR)/gds_lib_interface.hpp $(INCLUDE_DIR)
 	cp $(SOURCE_DIR)/gds_connection.hpp $(INCLUDE_DIR)
 	cp $(SOURCE_DIR)/gds_types.hpp $(INCLUDE_DIR)
 	cp $(SOURCE_DIR)/semaphore.hpp $(INCLUDE_DIR)
@@ -77,5 +75,5 @@ $(INCLUDE_DIR): $(OUTPUT_DIR)
 
 # Build source objs
 $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
-	@echo "[COMPILING] "$<" --> "$@
+	@echo "[COMPILING] "$<" -> "$@
 	@$(CXX) -c $(CXX_FLAGS_DEFAULT) $(ASIO_DECL) $< -o $@
