@@ -5,23 +5,21 @@ To use it in your application, you need the build and link the libraries with yo
 You can compile this with a compiler that supports the `C++17` standard:
 
 ```sh
-mkdir build
-cd build
-cmake ..
 make
-cd ..
 ```
 
 ## Dependencies
 
-The code has three additional libraries as its dependencies:
-  - Asio 1.12.2
-  - msgpack for C++ (version used: 3.2.0) (github repository [here](https://github.com/msgpack/msgpack-c/tree/cpp-3.2.0)).
-  - Simple WebSocket (forked / copied at 4th of November, 2019 from [here](https://gitlab.com/eidheim/Simple-WebSocket-Server)).
+  - OpenSSL
+  - Boost
+  - Asio 1.16.1 - (https://think-async.com/Asio/)
+  - msgpack for C++ 3.3.0 (https://github.com/msgpack/msgpack-c)
+  - Simple WebSocket 2.0.1 (https://gitlab.com/eidheim/Simple-WebSocket-Server)
   
-These are attached to our code, but please keep in mind that they have recursive dependencies as well (like OpenSSL and Boost).
+These are attached to our code, but please keep in mind that they have their own dependencies as well (like OpenSSL and Boost).
 
 Newer versions might work as well, but its not guaranteed to be fully compatible with our code.
+
 
 ## Usage
 
