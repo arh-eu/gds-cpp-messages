@@ -5,7 +5,7 @@
 #include "gds_safe_queue.hpp"
 #include "semaphore.hpp"
 
-#include "client_ws.hpp"
+#include <simple-websocket-server/client_ws.hpp>
 
 #include <atomic>
 #include <memory>

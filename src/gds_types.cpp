@@ -493,8 +493,6 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
 
         currentResult.subResults.emplace_back(currentSubResult);
       }
-
-      std::cout << "EventSubResult: " << currentSubResult << std::endl;
     }
 
     results.emplace_back(currentResult);

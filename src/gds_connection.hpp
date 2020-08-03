@@ -3,49 +3,27 @@
 
 #include "gds_types.hpp"
 
-#include "asio.hpp"
-
-#include <exception>
 #include <functional>
 #include <memory>
 #include <string>
 
 namespace gds_lib {
-namespace connection {
+  namespace connection {
 
-using gds_conn_rdy = std::function<void()>;
-using gds_msg_fn = std::function<void(gds_lib::gds_types::GdsMessage &)>;
-using gds_msg_err_fn = std::function<void(const std::exception &)>;
-using gds_ws_err_fn =
-    std::function<void(const gds_lib::gds_types::WebsocketResult &)>;
-using gds_ws_closed_fn =
-    std::function<void(const gds_lib::gds_types::WebsocketResult &)>;
+    struct GDSInterface {
+      virtual ~GDSInterface();
 
-struct GDSCallbacks {
-  gds_conn_rdy   connReadyCallback;
-  gds_msg_fn     msgCallback;
-  gds_msg_err_fn msgErrorCallback;
-  gds_ws_err_fn  wsErrorCallback;
-  gds_ws_closed_fn  wsClosedCallback;
-};
+      virtual void close() = 0;
+      virtual void send(const gds_lib::gds_types::GdsMessage &msg) = 0;
 
-using io_service_sptr = std::shared_ptr<asio::io_service>;
+      std::function<void()> on_open;
+      std::function<void(gds_lib::gds_types::GdsMessage &)> on_message;
+      std::function<void(int, const std::string&)> on_close;
+      std::function<void(int, const std::string&)> on_error;
 
-class GDSInterface {
-public:
-  virtual ~GDSInterface();
-  virtual void close() = 0;
-  virtual void sendMessage(const gds_lib::gds_types::GdsMessage &msg) = 0;
-
-  static std::shared_ptr<GDSInterface>
-  create(const std::string &host, const std::string &port,
-         const std::string &path, const GDSCallbacks &GDSMsgCallback,
-         const io_service_sptr &io_service);
-
-  static std::shared_ptr<GDSInterface>
-  create(const std::string &url, const GDSCallbacks &GDSMsgCallback,
-         const io_service_sptr &io_service);
-};
+      static std::shared_ptr<GDSInterface>      create(const std::string &url);
+      static std::shared_ptr<GDSInterface>      create(const std::string &url, const std::string& cert, const std::string& cert_pw);
+    };
 
 } // namespace connection
 } // namespace gds_lib

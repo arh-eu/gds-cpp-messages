@@ -34,7 +34,7 @@ namespace gds_lib {
           virtual ~Packable() {}
           virtual void pack(msgpack::packer<msgpack::sbuffer> &) const = 0;
           virtual void unpack(const msgpack::object &) = 0;
-          virtual void validate() const = 0;
+          virtual void validate() const {}
       };
 
 /**
