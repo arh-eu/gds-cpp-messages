@@ -1,12 +1,16 @@
 ## Compiling
 
-To use it in your application, you need the build and link the libraries with your code. The code uses `cmake` for the building stages.
-
-You can compile this with a compiler that supports the `C++17` standard:
+To use it in your application, you need the build and link the libraries with your code. The code uses `make` for building it. On Linux systems, you can use:
 
 ```sh
 make
 ```
+
+You can compile the source files found in the `src` folder with a compiler that supports the `C++17` standard as well to create the library on other systems. You should not forget to link all dependencies with it, otherwise the compilation process will fail.
+
+This will create a folder named `output` containing two other folders - the `lib` folder inside will contain the static (and dynamic) linkable versions for the GDS SDK (the static version - `gdslib.a` - will be used for our console client).
+
+The `include` folder contains the mandatory structures that are have to be used - the API for the WebSocket Connection (`gds_connection.hpp`) and the header for the message types (`gds_types.hpp`). These only use the standard headers, so you can copy them whenever needed without having to worry about anything. However, they should be linked with the `gdslib.a` when compiling your executable.
 
 ## Dependencies
 
