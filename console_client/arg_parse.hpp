@@ -16,6 +16,7 @@ class ArgParser {
         char* const* const argv;
         std::map<std::string, std::string> m_values;
         std::string msg;
+        bool ok;
 
     public:
         explicit ArgParser(int _argc, char** const _argv) : argc(_argc), argv(_argv)
@@ -23,6 +24,11 @@ class ArgParser {
             m_values["username"] = "user";
             m_values["timeout"] = "30";
             m_values["url"] = "127.0.0.1:8888/gate";
+        }
+
+        bool is_ok() const
+        {
+            return ok;
         }
 
         const std::string& message() const 
@@ -40,7 +46,7 @@ class ArgParser {
             return m_values.at(key);
         }
 
-        bool parse()
+        void parse()
         {
             static struct option long_options[] = 
             {
@@ -52,16 +58,11 @@ class ArgParser {
                 {"help", no_argument, NULL, 's'},
                 //{"tls", no_argument, NULL, 's'},
 
-
                 {"attachment", required_argument, NULL, 'a'},
                 {"attachments", required_argument, NULL, 'f'},
                 {"event", required_argument, NULL, 'e'},
-                {"insert", required_argument, NULL, 'i'},
-                {"merge", required_argument, NULL, 'm'},
                 {"query", required_argument, NULL, 'q'},
-                {"queryall", required_argument, NULL, 'r'},
-                {"update", required_argument, NULL, 'u'},
-
+                {"queryall", required_argument, NULL, 'r'}
             };
             
             signed char ch;
@@ -90,11 +91,9 @@ class ArgParser {
                         break;
 
                     case 'e':
-                    case 'i':
-                    case 'm':
-                    case 'u':
-                        if (check_has_commands()){
-                            return false;
+                        if (has_commands()){
+                            ok = false;
+                            return;
                         }
                         m_values["event"] = std::string(optarg);
                         break;
@@ -104,58 +103,64 @@ class ArgParser {
                         break;
 
                     case 'q':
-                        if (check_has_commands()){
-                            return false;
+                        if (has_commands()){
+                            ok = false;
+                            return;
                         }
                         m_values["query"] = std::string(optarg);
                         break;
 
                     case 'r':
-                        if (check_has_commands()){
-                            return false;
+                        if (has_commands()){
+                            ok = false;
+                            return;
                         }
                         m_values["queryall"] = std::string(optarg);
                         break;
 
                     case 'a':
-                        if (check_has_commands()){
-                            return false;
+                        if (has_commands()){
+                            ok = false;
+                            return;
                         }
                         m_values["attachment"] = std::string(optarg);
                         break;
                     case 's':
+                        m_values["help"] = {};
                         create_help();
-                        return false;
+                        ok = true;
+                        return;
 
                     case '?':
                     case -1:
-                        return false;
+                        ok = false;
+                        return;
                 }
             }
 
 
-            if(check_has_commands())
+            if(has_commands() || has_arg("hex") || has_arg("help"))
             {
-                return true;
+                ok = true;
             }
             else
             {
                 msg = "No argument was specified, cannot run without any!";
-                return false;
+                ok = false;
             }
         }
 
-        private:
-        bool check_has_commands() const noexcept
+        bool has_commands() const noexcept
         {
             return (has_arg("attachment") || has_arg("event") || has_arg("query") || has_arg("queryall"));
         }
+        private:
 
         void create_help() noexcept
         {
             msg = "Usage: " + std::string(argv[0]);
             msg += " [-help] [-username USERNAME] [-password PASSWORD] [-timeout TIMEOUT] [-url URL]\n";
-            msg += "(-hex HEX | -attachment ATTACHMENT | -insert INSERT | -event EVENT | -merge MERGE | -query QUERY | -queryall QUERY) | -update UPDATE)";
+            msg += "(-hex HEX | -attachment ATTACHMENT | -event EVENT | -query QUERY | -queryall QUERY )";
             msg += "[-attachments ATTACHMENTS]";
         }
 };

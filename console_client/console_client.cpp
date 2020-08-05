@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 #include "gds_uuid.hpp"
 
@@ -78,6 +79,10 @@ void SimpleGDSClient::run() {
       }
       send_event(event_string, file_list);
     }
+    else if(args.has_arg("attachment"))
+    {
+      std::string event_string = args.get_arg("event");
+    }
 
     if(!nextMsgReceived.wait_for(timeout))
     {
@@ -132,17 +137,17 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
     if(file_list.length() != 0){
       std::map<std::string, byte_array> binaries;
 
+      std::stringstream file_list_stream(file_list);
+      std::string tmp;
+      std::vector<std::string> filenames;
       constexpr static char delimiter = ';';
-      auto start = 0U;
-      auto end = file_list.find(delimiter);
-      if(end == std::string::npos){
-        end = file_list.length();
+      while(std::getline(file_list_stream, tmp, delimiter))
+      {
+        filenames.emplace_back(tmp);
       }
 
-
-      while(end != std::string::npos)
+      for(const auto& filename : filenames)
       {
-        std::string filename = file_list.substr(start, end-start);
         std::string filepath = "attachments/";
         filepath += filename;
 
@@ -166,9 +171,6 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
         {
           std::cout << "Could not open the attachment file named '" << filename <<"'!";
         }
-
-        start  = end + 1;
-        end = file_list.find(delimiter, start);
       }
 
       eventBody->binaryContents = binaries;
