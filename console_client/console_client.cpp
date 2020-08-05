@@ -68,7 +68,14 @@ void SimpleGDSClient::run() {
     if(args.has_arg("query") || args.has_arg("queryall"))
     {
       std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
+      query_all = args.has_arg("queryall");
       send_query(query_string);
+/*
+      if(!nextMsgReceived.wait_for(timeout))
+      {
+        throw new std::runtime_error("Timeout passed while waiting for the query reply message!");
+      }
+      */
     }
     else if (args.has_arg("event"))
     {
@@ -84,10 +91,7 @@ void SimpleGDSClient::run() {
       std::string event_string = args.get_arg("event");
     }
 
-    if(!nextMsgReceived.wait_for(timeout))
-    {
-      throw new std::runtime_error("Timeout passed while waiting for the reply message!");
-    }
+    workDone.wait();
   }
 }
 
@@ -109,6 +113,7 @@ void SimpleGDSClient::login() {
 void SimpleGDSClient::send_query(const std::string& query_str)
 {
   GdsMessage fullMessage = create_default_message();
+  message_id = fullMessage.messageId;
 
   fullMessage.dataType = GdsMsgType::QUERY;
 
@@ -121,6 +126,25 @@ void SimpleGDSClient::send_query(const std::string& query_str)
   fullMessage.messageBody = selectBody;
 
   std::cout << "Trying to send SELECT query message to the GDS.." << std::endl;
+  mGDSInterface->send(fullMessage);
+}
+
+
+void SimpleGDSClient::send_next_query()
+{
+  GdsMessage fullMessage = create_default_message();
+  fullMessage.messageId = message_id;
+
+  fullMessage.dataType = GdsMsgType::GET_NEXT_QUERY;
+
+  std::shared_ptr<GdsNextQueryRequestMessage> selectBody(new GdsNextQueryRequestMessage());
+  {
+    selectBody->contextDescriptor = contextDescriptor;
+    selectBody->timeout = 0;
+  }
+  fullMessage.messageBody = selectBody;
+
+  std::cout << "Trying to send next SELECT query message to the GDS.." << std::endl;
   mGDSInterface->send(fullMessage);
 }
 
@@ -312,32 +336,41 @@ void SimpleGDSClient::handleQueryReply(
   std::cout << "CLIENT received a SELECT reply message! ";
   std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
 
-  std::cout << "Full message:" << std::endl;
-  std::cout << fullMessage.to_string() << std::endl;
-  /*
-  if (queryReply->response) {
-
-    std::cout << "The reply has: " << queryReply->response->numberOfHits
-    << " rows." << std::endl;
-    std::cout << "First row: [ ";
-    std::vector<std::vector<GdsFieldValue>> &hits = queryReply->response->hits;
-
-    for (auto &col : hits[0]) {
-     std::cout << col.to_string() << ' ';
-   }
-   std::cout << ']' << std::endl;
-   contextDescriptor = queryReply->response->queryContextDescriptor;
+  std::cout << "Full message is saved to the 'exports' folder." << std::endl;
+  std::string  filename = "exports/";
+  filename += fullMessage.messageId;
+  filename += ".txt";
+  std::ofstream output(filename);
+  if(output.is_open())
+  {
+    output << fullMessage.to_string();
   }
-   */
+  else
+  {
+    std::cout << "Could not open " + filename + "!" << std::endl;
+  }
+
+  bool hasMorePages = false;
+  if (queryReply->response) {
+    hasMorePages = queryReply->response->hasMorePages;
+    contextDescriptor = queryReply->response->queryContextDescriptor;
+  }
 
   nextMsgReceived.notify();
+
+  if(query_all && hasMorePages){
+    send_next_query();
+  }else{
+    workDone.notify();
+  }
 }
 
 void SimpleGDSClient::onError(int code, const std::string& reason) {
   std::cerr << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
-  if(code == 111){
+  if(code == 111 || code == 2){
     connection_open.store(false);
     connectionReady.notify(); 
+    workDone.notify();
   }
 }
 
@@ -350,4 +383,5 @@ void SimpleGDSClient::onClose(int code, const std::string& reason) {
   std::cerr << "WebSocket closed: " << reason << " (code: " <<  code << ")" << std::endl;
   connection_open.store(false);
   connectionClosed.notify();
+  workDone.notify();
 }

@@ -18,6 +18,8 @@ class SimpleGDSClient {
 
   binary_semaphore_t loginReplySemaphore;
   binary_semaphore_t nextMsgReceived;
+  
+  binary_semaphore_t workDone;
 
   binary_semaphore_t connectionReady;
   binary_semaphore_t connectionClosed;
@@ -26,6 +28,10 @@ class SimpleGDSClient {
 
   unsigned long timeout;
   std::atomic_bool connection_open;
+
+  bool query_all;
+
+  std::string message_id;
 
 public:
   SimpleGDSClient(const ArgParser&);
@@ -44,6 +50,7 @@ private:
 
   void login();
   void send_query(const std::string&);
+  void send_next_query();
   void send_event(const std::string&, const std::string&);
 
 
