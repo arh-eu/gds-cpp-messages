@@ -596,6 +596,14 @@ std::string AttachmentResult::to_string() const
   ss << ", " << meta;
   ss << ", " << ttl;
   ss << ", " << to_valid;
+  if(attachment)
+  {
+    ss << ", <" << attachment.value().size() << " bytes>";
+  }
+  else
+  {
+    ss << ", " << attachment;
+  }
   ss << ']';
   return ss.str();
 }
@@ -680,15 +688,13 @@ std::string AttachmentResponse::to_string() const
 void AttachmentResponseBody::pack(
   msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
-  packer.pack_array(2);
-  packer.pack_int32(status);
+  packer.pack_array(1);
   result.pack(packer);
 }
 
 void AttachmentResponseBody::unpack(const msgpack::object &packer) {
   std::vector<msgpack::object> obj = packer.as<std::vector<msgpack::object>>();
-  status = obj.at(0).as<int32_t>();
-  result.unpack(obj.at(1));
+  result.unpack(obj.at(0));
   validate();
 }
 void AttachmentResponseBody::validate() const { result.validate(); }
@@ -698,8 +704,7 @@ std::string AttachmentResponseBody::to_string() const
 {
   std::stringstream ss;
   ss << '[';
-  ss << status;
-  ss << ", " << result;
+  ss << result;
   ss << ']';
   return ss.str();
 }

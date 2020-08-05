@@ -52,6 +52,10 @@ private:
   void send_query(const std::string&);
   void send_next_query();
   void send_event(const std::string&, const std::string&);
+  void send_attachment_request(const std::string&);
+
+
+  void save_message(gds_lib::gds_types::GdsMessage &);
 
 
   gds_lib::gds_types::GdsMessage create_default_message();
@@ -66,6 +70,9 @@ private:
   void handleAttachmentRequestReply(
     gds_lib::gds_types::GdsMessage &,
     std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage> &);
+   void handleAttachmentResponse(
+    gds_lib::gds_types::GdsMessage &,
+    std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage> &);
   void
   handleEventDocumentReply(gds_lib::gds_types::GdsMessage &,
     std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage> &);

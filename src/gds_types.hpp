@@ -229,8 +229,7 @@ struct AttachmentResponse : public Packable {
 };
 
 struct AttachmentResponseBody : public Packable {
-  int32_t            status;
-  AttachmentResponse result;
+  AttachmentResult result;
 
   void pack(msgpack::packer<msgpack::sbuffer> &) const override;
   void unpack(const msgpack::object &) override;

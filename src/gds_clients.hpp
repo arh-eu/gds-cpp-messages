@@ -93,7 +93,8 @@ namespace gds_lib {
 			m_closed = false;
 
 			m_wsThread = std::thread([this](){
-  				mWebSocket->start();
+  				this->mWebSocket->start();
+  				this->mWebSocket->io_service->run();
 			});
 		}
 
@@ -102,6 +103,7 @@ namespace gds_lib {
 		void BaseGDSClient<ws_client_type>::m_on_message(connection_sptr /*connection*/,
 			std::shared_ptr<typename ws_client_type::InMessage> in_msg)
 		{
+			std::cerr << "[GDS lib] on_message" << std::endl;
 			if(on_message){
 				std::string message = in_msg->string();
 		        msgpack::object_handle oh = msgpack::unpack(message.data(), message.size());
@@ -127,6 +129,7 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::m_on_open(connection_sptr connection)
 		{
+			std::cerr << "[GDS lib] on_open" << std::endl;
 			mConnection = connection;
 			if(on_open)
 			{
@@ -139,6 +142,7 @@ namespace gds_lib {
 		void BaseGDSClient<ws_client_type>::m_on_close(connection_sptr /*connection*/,
 			  int code, const std::string& reason)
 		{
+			std::cerr << "[GDS lib] on_close" << std::endl;
 			if(on_close)
 			{
 				on_close(code, reason);
@@ -150,6 +154,7 @@ namespace gds_lib {
 		void BaseGDSClient<ws_client_type>::m_on_error(connection_sptr /*connection*/,
 			  const SimpleWeb::error_code &error_code)
 		{
+			std::cerr << "[GDS lib] on_error" << std::endl;
 			if(on_error)
 			{
 				on_error(error_code.value(), error_code.message());
@@ -161,7 +166,7 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::send(const gds_lib::gds_types::GdsMessage &msg)
 		{
-
+			std::cerr << "[GDS lib] send" << std::endl;
         	msgpack::sbuffer                  buffer;
 			msgpack::packer<msgpack::sbuffer> pk(&buffer);
 			
@@ -176,6 +181,7 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::close()
 		{
+			std::cerr << "[GDS lib] close" << std::endl;
 			if(!m_closed)
 			{
 				if(mConnection)

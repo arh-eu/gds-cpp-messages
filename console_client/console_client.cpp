@@ -3,6 +3,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <cstdio>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -88,7 +89,8 @@ void SimpleGDSClient::run() {
     }
     else if(args.has_arg("attachment"))
     {
-      std::string event_string = args.get_arg("event");
+      std::string attach_string = args.get_arg("attachment");
+      send_attachment_request(attach_string);
     }
 
     workDone.wait();
@@ -205,6 +207,24 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
   mGDSInterface->send(fullMessage);
 }
 
+
+void SimpleGDSClient::send_attachment_request(const std::string& request)
+{
+  GdsMessage fullMessage = create_default_message();
+  message_id = fullMessage.messageId;
+
+  fullMessage.dataType = GdsMsgType::ATTACHMENT_REQUEST;
+
+  std::shared_ptr<GdsAttachmentRequestMessage> requestBody(new GdsAttachmentRequestMessage());
+  {
+    requestBody->request = request;
+  }
+  fullMessage.messageBody = requestBody;
+
+  std::cout << "Trying to send attachment request message to the GDS.." << std::endl;
+  mGDSInterface->send(fullMessage);
+}
+
 gds_lib::gds_types::GdsMessage SimpleGDSClient::create_default_message()
 {
   int64_t currentTime = now();
@@ -222,6 +242,8 @@ gds_lib::gds_types::GdsMessage SimpleGDSClient::create_default_message()
 
 void SimpleGDSClient::onMessageReceived(
   gds_lib::gds_types::GdsMessage &msg) {
+
+  save_message(msg);
   switch (msg.dataType) {
   case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
   {
@@ -242,8 +264,13 @@ void SimpleGDSClient::onMessageReceived(
       msg.messageBody);
     handleAttachmentRequestReply(msg, body);
   } break;
-  case gds_types::GdsMsgType::ATTACHMENT_REPLY: // Type 7
-
+  case gds_types::GdsMsgType::ATTACHMENT: // Type 6
+  {
+    std::shared_ptr<GdsAttachmentResponseMessage> body =
+    std::dynamic_pointer_cast<GdsAttachmentResponseMessage>(
+      msg.messageBody);
+    handleAttachmentResponse(msg, body);
+  } break;
   break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT: // Type 8
 
@@ -325,7 +352,112 @@ void SimpleGDSClient::handleAttachmentRequestReply(
   std::cout << "CLIENT received an AttachmentRequestReply message! "
   << std::endl;
   std::cout << "Global status code is: " << replyBody->ackStatus << std::endl;
+
+  if(replyBody->ackStatus == 200)
+  {
+    AttachmentRequestBody& body = replyBody->request.value();
+    AttachmentResult& result = body.result;
+    if(result.attachment)
+    {
+      std::cout << "Attachment received as well, saving.." << std::endl;
+      std::vector<uint8_t>& binary_data = result.attachment.value();
+      std::string filename = "attachments/";
+      filename += result.attachmentID;
+
+      std::string extension = ".unknown";
+      if(result.meta)
+      {
+        std::string mimetype = result.meta.value();
+        if(mimetype == "image/png"){
+          extension = ".png";
+        }
+        else if(mimetype == "image/jpg" || mimetype == "image/jpeg"){
+          extension = ".jpg";
+        }
+        else if(mimetype == "image/bmp"){
+          extension = ".bmp";
+        }
+        else if(mimetype == "video/mp4"){
+          extension = ".mp4";
+        }
+      }
+      filename += extension;
+
+      FILE* output = fopen(filename.c_str(), "wb");
+      if(output){
+        fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
+        fclose(output);
+      }
+      else
+      {
+        std::cout << "Could not open " + filename + "!" << std::endl;
+      }
+
+      workDone.notify();
+    }
+    else
+    {
+      std::cout << "Attachment not yet received, awaiting.." << std::endl;
+    }
+  }
+  else
+  {
+    if(replyBody->ackException)
+    {
+      std::cout << replyBody->ackException.value() << std::endl;
+    }
+    workDone.notify();
+  }
+
   nextMsgReceived.notify();
+}
+
+
+void SimpleGDSClient::handleAttachmentResponse(
+  gds_lib::gds_types::GdsMessage &,
+  std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage>
+  &replyBody) {
+  std::cout << "CLIENT received an AttachmentResponse message! "
+  << std::endl;
+
+      AttachmentResult result = replyBody->result;
+    
+      std::cout << "Saving attachment.." << std::endl;
+      std::vector<uint8_t>& binary_data = result.attachment.value();
+      std::string filename = "attachments/";
+      filename += result.attachmentID;
+
+      std::string extension = ".unknown";
+      if(result.meta)
+      {
+        std::string mimetype = result.meta.value();
+        if(mimetype == "image/png"){
+          extension = ".png";
+        }
+        else if(mimetype == "image/jpg" || mimetype == "image/jpeg"){
+          extension = ".jpg";
+        }
+        else if(mimetype == "image/bmp"){
+          extension = ".bmp";
+        }
+        else if(mimetype == "video/mp4"){
+          extension = ".mp4";
+        }
+      }
+      filename += extension;
+
+      FILE* output = fopen(filename.c_str(), "wb");
+      if(output){
+        fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
+        fclose(output);
+      }
+      else
+      {
+        std::cout << "Could not open " + filename + "!" << std::endl;
+      }
+
+      workDone.notify();
+    nextMsgReceived.notify();
 }
 
 void SimpleGDSClient::handleQueryReply(
@@ -335,20 +467,6 @@ void SimpleGDSClient::handleQueryReply(
 
   std::cout << "CLIENT received a SELECT reply message! ";
   std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
-
-  std::cout << "Full message is saved to the 'exports' folder." << std::endl;
-  std::string  filename = "exports/";
-  filename += fullMessage.messageId;
-  filename += ".txt";
-  std::ofstream output(filename);
-  if(output.is_open())
-  {
-    output << fullMessage.to_string();
-  }
-  else
-  {
-    std::cout << "Could not open " + filename + "!" << std::endl;
-  }
 
   bool hasMorePages = false;
   if (queryReply->response) {
@@ -362,6 +480,24 @@ void SimpleGDSClient::handleQueryReply(
     send_next_query();
   }else{
     workDone.notify();
+  }
+}
+
+
+void SimpleGDSClient::save_message(gds_lib::gds_types::GdsMessage &fullMessage)
+{
+  std::string  filename = "exports/";
+  filename += fullMessage.messageId;
+  filename += ".txt";
+  std::ofstream output(filename);
+  if(output.is_open())
+  {
+    std::cout << "Full message is saved as " << filename << std::endl;
+    output << fullMessage.to_string();
+  }
+  else
+  {
+    std::cout << "Could not open " + filename + "!" << std::endl;
   }
 }
 
