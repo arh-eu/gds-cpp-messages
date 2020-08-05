@@ -48,6 +48,7 @@ namespace gds_lib {
 		private:
 			  void init();
 			  std::thread m_wsThread;
+			  bool m_closed;
 		};
 
 		using InsecureGDSClient = BaseGDSClient<SimpleWeb::SocketClient<SimpleWeb::WS> >;
@@ -61,7 +62,6 @@ namespace gds_lib {
 		BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string &url)
 		: mWebSocket( new ws_client_type(url))
 		{
-			std::cerr << "GDSClient created.." << std::endl;
 			init();
 		}
 		
@@ -78,16 +78,7 @@ namespace gds_lib {
 		<typename ws_client_type>
 		BaseGDSClient<ws_client_type>::~BaseGDSClient()
 		{
-			if(mWebSocket)
-			{
-				mConnection->send_close(1000);
-				mWebSocket->stop();
-			}
-
-			if(m_wsThread.joinable())
-			{
-				m_wsThread.join();
-			}
+			close();
 		}
 
 		template
@@ -98,6 +89,8 @@ namespace gds_lib {
 			mWebSocket->on_message =  std::bind(&BaseGDSClient<ws_client_type>::m_on_message, this, std::placeholders::_1, std::placeholders::_2);
 			mWebSocket->on_close   =  std::bind(&BaseGDSClient<ws_client_type>::m_on_close,   this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
   			mWebSocket->on_error   =  std::bind(&BaseGDSClient<ws_client_type>::m_on_error,   this, std::placeholders::_1, std::placeholders::_2);
+
+			m_closed = false;
 
 			m_wsThread = std::thread([this](){
   				mWebSocket->start();
@@ -183,7 +176,20 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::close()
 		{
+			if(!m_closed)
+			{
+				if(mConnection)
+				{
+					std::cerr << "Closing WebSocket connection.." << std::endl;
+					mConnection->send_close(1000);
+				}
 
+				if(m_wsThread.joinable())
+				{
+					m_wsThread.join();
+				}
+				m_closed = true;
+			}
 		}
 
 	/*	

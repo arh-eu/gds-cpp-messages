@@ -17,13 +17,14 @@ CXX_FLAGS = -Ofast -Wall $(CXX_VERSION) $(CXX_INCLUDE_PATHS) \
     -Wdouble-promotion \
     -Wshadow \
     -Wswitch \
-    -Werror=return-type
+    -Werror=return-type \
+    -g
 
 ASIO_DECL := -DASIO_STANDALONE
 
 LD_FLAGS = -L$(GDS_LIB_PATH) ../output/lib/libgds.a -lcrypto -lssl -lpthread -lrt -lm -ldl #static linking
 
-NAME = main
+NAME = gds_console_client.exe
 
 GDS_INCLUDE_PATH = ../output/include/
 GDS_LIB_PATH = ../output/lib

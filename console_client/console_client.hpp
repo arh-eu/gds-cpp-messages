@@ -8,6 +8,7 @@
 
 #include "arg_parse.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <exception>
@@ -24,7 +25,7 @@ class SimpleGDSClient {
   ArgParser args;
 
   unsigned long timeout;
-
+  std::atomic_bool connection_open;
 
 public:
   SimpleGDSClient(const ArgParser&);
@@ -65,6 +66,8 @@ private:
   handleQueryReply(gds_lib::gds_types::GdsMessage &,
    std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> &);
 
+  void onOpen();
+  void onClose(int, const std::string&);
   void onMessageReceived(gds_lib::gds_types::GdsMessage &);
   void onError(int, const std::string&);
 };

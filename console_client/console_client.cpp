@@ -11,14 +11,16 @@
 using namespace gds_lib;
 using namespace gds_lib::gds_types;
 
-SimpleGDSClient::SimpleGDSClient(const ArgParser& _args) : args(_args) {
+SimpleGDSClient::SimpleGDSClient(const ArgParser& _args) : args(_args), connection_open(false) {
 
   timeout = std::stoul(args.get_arg("timeout")) * 1000;
   std::cout << "Timeout is set to " << timeout << "ms." << std::endl;
+  std::cout << "Setting up ConsoleClient.." << std::endl;
+
   mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"));
 
-  std::cout << "Setting up client.." << std::endl;
-  mGDSInterface->on_open    = [this]() { this->connectionReady.notify(); };
+  mGDSInterface->on_open    = std::bind(&SimpleGDSClient::onOpen, this);
+  mGDSInterface->on_close   = std::bind(&SimpleGDSClient::onClose, this, std::placeholders::_1, std::placeholders::_2);
   mGDSInterface->on_message = std::bind(&SimpleGDSClient::onMessageReceived, this, std::placeholders::_1);
   mGDSInterface->on_error   = std::bind(&SimpleGDSClient::onError, this, std::placeholders::_1, std::placeholders::_2);
 
@@ -42,38 +44,45 @@ int64_t SimpleGDSClient::now() {
 
 void SimpleGDSClient::setupConnection()
 {
-  std::cout << "Setting up WebSocket connection.." << std::endl;
+  std::cout << "Initializing WebSocket connection.." << std::endl;
   if(!connectionReady.wait_for(timeout))
   {
     throw new std::runtime_error("Timeout passed while waiting for connection setup!");
   }
-  std::cout << "Sending login message.." << std::endl;
-  login();
-  std::cout << "Awaiting login ACK.." << std::endl;
-  loginReplySemaphore.wait();
-  std::cout << "Login ACK received!" << std::endl;
+
+  if(connection_open.load())
+  {
+    std::cout << "WebSocket connection with GDS successful!" << std::endl;
+    std::cout << "Sending login message.." << std::endl;
+    login();
+    std::cout << "Awaiting login ACK.." << std::endl;
+    loginReplySemaphore.wait();
+    std::cout << "Login ACK received!" << std::endl;
+  }
 }
 
 void SimpleGDSClient::run() {
-
-  if(args.has_arg("query") || args.has_arg("queryall"))
+  if(connection_open.load())
   {
-    std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
-    send_query(query_string);
-  }
-  else if (args.has_arg("event"))
-  {
-    std::string event_string = args.get_arg("event");
-    std::string file_list;
-    if(args.has_arg("files")){
-      file_list = args.get_arg("files");
+    if(args.has_arg("query") || args.has_arg("queryall"))
+    {
+      std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
+      send_query(query_string);
     }
-    send_event(event_string, file_list);
-  }
+    else if (args.has_arg("event"))
+    {
+      std::string event_string = args.get_arg("event");
+      std::string file_list;
+      if(args.has_arg("files")){
+        file_list = args.get_arg("files");
+      }
+      send_event(event_string, file_list);
+    }
 
-  if(!nextMsgReceived.wait_for(timeout))
-  {
-    throw new std::runtime_error("Timeout passed while waiting for the reply message!");
+    if(!nextMsgReceived.wait_for(timeout))
+    {
+      throw new std::runtime_error("Timeout passed while waiting for the reply message!");
+    }
   }
 }
 
@@ -123,7 +132,7 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
     if(file_list.length() != 0){
       std::map<std::string, byte_array> binaries;
 
-      const static std::string delimiter {";"};
+      constexpr static char delimiter = ';';
       auto start = 0U;
       auto end = file_list.find(delimiter);
       if(end == std::string::npos){
@@ -155,7 +164,7 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
         }
         else
         {
-          std::cout << "Could not open '" << filename <<"'!";
+          std::cout << "Could not open the attachment file named '" << filename <<"'!";
         }
 
         start  = end + 1;
@@ -166,9 +175,7 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
     }
   }
   fullMessage.messageBody = eventBody;
-
-  std::cout << "Trying to send the EVENT message to be sent for GDS:" << std::endl << fullMessage.to_string() << std::endl;
-  std::cout << "Trying to send the EVENT message to the GDS.." << std::endl;
+  std::cout << "Sending the EVENT message to the GDS.." << std::endl;
   mGDSInterface->send(fullMessage);
 }
 
@@ -325,5 +332,20 @@ void SimpleGDSClient::handleQueryReply(
 }
 
 void SimpleGDSClient::onError(int code, const std::string& reason) {
-  std::cerr << "WebSocket returned error: " << reason << " (code: " <<  code << ")" << std::endl;
+  std::cerr << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
+  if(code == 111){
+    connection_open.store(false);
+    connectionReady.notify(); 
+  }
+}
+
+void SimpleGDSClient::onOpen() {
+  connection_open.store(true);
+  connectionReady.notify(); 
+}
+
+void SimpleGDSClient::onClose(int code, const std::string& reason) {
+  std::cerr << "WebSocket closed: " << reason << " (code: " <<  code << ")" << std::endl;
+  connection_open.store(false);
+  connectionClosed.notify();
 }
