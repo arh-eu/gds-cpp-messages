@@ -54,6 +54,7 @@ class ArgParser {
 
 
                 {"attachment", required_argument, NULL, 'a'},
+                {"attachments", required_argument, NULL, 'f'},
                 {"event", required_argument, NULL, 'e'},
                 {"insert", required_argument, NULL, 'i'},
                 {"merge", required_argument, NULL, 'm'},
@@ -96,6 +97,10 @@ class ArgParser {
                             return false;
                         }
                         m_values["event"] = std::string(optarg);
+                        break;
+                        
+                    case 'f':
+                        m_values["files"] = std::string(optarg);
                         break;
 
                     case 'q':
