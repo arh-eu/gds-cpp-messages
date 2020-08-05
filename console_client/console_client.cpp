@@ -456,7 +456,28 @@ void SimpleGDSClient::handleAttachmentResponse(
         std::cout << "Could not open " + filename + "!" << std::endl;
       }
 
-      workDone.notify();
+      {
+        GdsMessage fullMessage = create_default_message();
+        message_id = fullMessage.messageId;
+
+        fullMessage.dataType = GdsMsgType::ATTACHMENT_REPLY;
+        std::shared_ptr<GdsAttachmentResponseResultMessage> requestBody(new GdsAttachmentResponseResultMessage());
+        {
+          requestBody-> ackStatus = 200;
+          requestBody->response = {};
+          requestBody->response->status = 201;
+          requestBody->response->result.requestIDs = result.requestIDs;
+          requestBody->response->result.ownerTable = result.ownerTable;
+          requestBody->response->result.attachmentID = result.attachmentID;
+          
+        }
+        fullMessage.messageBody = requestBody;
+
+        std::cout << "Send attachment response result message to the GDS.." << std::endl;
+        mGDSInterface->send(fullMessage);
+      }
+
+    workDone.notify();
     nextMsgReceived.notify();
 }
 

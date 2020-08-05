@@ -688,13 +688,15 @@ std::string AttachmentResponse::to_string() const
 void AttachmentResponseBody::pack(
   msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
-  packer.pack_array(1);
+  packer.pack_array(2);
+  packer.pack_int32(status);
   result.pack(packer);
 }
 
 void AttachmentResponseBody::unpack(const msgpack::object &packer) {
   std::vector<msgpack::object> obj = packer.as<std::vector<msgpack::object>>();
-  result.unpack(obj.at(0));
+  status = obj.at(0).as<int32_t>();
+  result.unpack(obj.at(1));
   validate();
 }
 void AttachmentResponseBody::validate() const { result.validate(); }
@@ -704,7 +706,8 @@ std::string AttachmentResponseBody::to_string() const
 {
   std::stringstream ss;
   ss << '[';
-  ss << result;
+  ss << status;
+  ss << ", " << result;
   ss << ']';
   return ss.str();
 }
