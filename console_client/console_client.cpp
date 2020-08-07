@@ -16,7 +16,7 @@ using namespace gds_lib::gds_types;
 GDSConsoleClient::GDSConsoleClient(const ArgParser& _args) : args(_args), connection_open(false) {
 
   timeout = std::stoul(args.get_arg("timeout")) * 1000;
-  std::cout << "Timeout is set to " << timeout << "ms." << std::endl;
+  std::cout << "Timeout is set to " << args.get_arg("timeout") << " seconds" << std::endl;
   std::cout << "Setting up ConsoleClient.." << std::endl;
 
   mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"));
@@ -59,8 +59,14 @@ void GDSConsoleClient::setupConnection()
     std::cout << "Sending login message.." << std::endl;
     login();
     std::cout << "Awaiting login ACK.." << std::endl;
-    loginReplySemaphore.wait();
-    std::cout << "Login ACK received!" << std::endl;
+    if(!loginReplySemaphore.wait_for(timeout))
+    {
+      throw new std::runtime_error("Timeout passed while waiting for login reply!");
+    }
+    else
+    {
+      std::cout << "Login ACK received!" << std::endl;
+    }
   }
 }
 
@@ -88,7 +94,10 @@ void GDSConsoleClient::run() {
       send_attachment_request(attach_string);
     }
 
-    workDone.wait();
+    if(!workDone.wait_for(timeout))
+    {
+      std::cout << "The GDS did not send its message in time!" << std::endl;
+    }
   }
 }
 
