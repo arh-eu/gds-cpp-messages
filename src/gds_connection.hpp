@@ -8,22 +8,22 @@
 #include <string>
 
 namespace gds_lib {
-  namespace connection {
+namespace connection {
 
     struct GDSInterface {
-      virtual ~GDSInterface();
+        virtual ~GDSInterface();
 
-      virtual void close() = 0;
-      virtual void start() = 0;
-      virtual void send(const gds_lib::gds_types::GdsMessage &msg) = 0;
+        virtual void close() = 0;
+        virtual void start() = 0;
+        virtual void send(const gds_lib::gds_types::GdsMessage& msg) = 0;
 
-      std::function<void()> on_open;
-      std::function<void(gds_lib::gds_types::GdsMessage &)> on_message;
-      std::function<void(int, const std::string&)> on_close;
-      std::function<void(int, const std::string&)> on_error;
+        std::function<void()> on_open;
+        std::function<void(gds_lib::gds_types::GdsMessage&)> on_message;
+        std::function<void(int, const std::string&)> on_close;
+        std::function<void(int, const std::string&)> on_error;
 
-      static std::shared_ptr<GDSInterface>      create(const std::string &url);
-      static std::shared_ptr<GDSInterface>      create(const std::string &url, const std::string& cert, const std::string& cert_pw);
+        static std::shared_ptr<GDSInterface> create(const std::string& url);
+        static std::shared_ptr<GDSInterface> create(const std::string& url, const std::string& cert, const std::string& cert_pw);
     };
 
 } // namespace connection

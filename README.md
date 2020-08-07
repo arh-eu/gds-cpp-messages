@@ -161,17 +161,73 @@ It is possible, that your query has more than one pages available. By default, o
 
 If you do not want to bother by manually sending these requests, you can use the -queryall flag instead, that will automatically send these Next Query Page requests as long as there are additional pages with records available.
 
+
+## SDK usage
+
 The code is separated into 3 different header files. The GDS Message types are declared in the `gds_types.hpp` file.
 The core functions for communication can be found in the `gds_connection.hpp` header.
 
 A `semaphore.hpp` is also added. This is not needed for user created applications, but our examples and console clients use them.
 
-You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has two overloads depending on if you want to use TLS security or not. If not, the only url that should be passed is the GDS gate url (fe. `192.168.111.222:8888/gate`).
-
 Please note that the usual `ws://` or `wss://` prefix is _not_ needed in the URL (it will lead to a connection refusal as the `SimpleWebSocketClient` expects the URL without the scheme).
 
-## SDK usage
 
+### Creating the Client
+
+You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has two overloads depending on if you want to use TLS security or not. If not, the only url that should be passed is the GDS gate url (fe. `192.168.111.222:8888/gate`).
+
+```cpp
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate");
+```
+
+### Callbacks
+
+The client communicates with callbacks since it runs on a separate thread. You can specify your own callback function for the interface. It has four public members for this:
+```cpp
+struct GDSInterface {
+  //...
+  std::function<void()> on_open;
+  std::function<void(gds_lib::gds_types::GdsMessage &)> on_message;
+  std::function<void(int, const std::string&)> on_close;
+  std::function<void(int, const std::string&)> on_error;
+  //...
+};
+```
+
+Your client code simply has to assign a value for these after you create the client:
+
+```cpp
+	mGDSInterface->on_open    = [](){
+		std::cout << "Client is open!" << std::endl;
+	};
+
+	mGDSInterface->on_close   = [](int status, const std::string& reason){
+  		std::cout << "Client closed: " << reason << " (code: " <<  code << ")" << std::endl;
+	};
+
+	mGDSInterface->on_error   = [](int code, const std::string& reason) {
+		std::cout << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
+	};
+
+
+	mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+		std::cout << "I received a message!" << std::endl;
+	};
+
+```
+
+After you are done with this, only one thing is left, to start your client with the `start()` method.
+
+```cpp
+	mGDSInterface->start();
+```
+
+If you no longer need the client, you should invoke the `close()` method, which sends the standard close message for the WebSocket connection. The destructor also invokes this if it was not closed yet, however, you probably do not want to keep the connection open if it is not needed anymore.
+
+
+```cpp
+	mGDSInterface->close();
+```
 
 
 ### Implementation-defined behaviours
