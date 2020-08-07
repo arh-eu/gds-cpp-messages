@@ -17,16 +17,6 @@
 namespace gds_lib {
 namespace gds_types {
 
-    struct WebsocketResult {
-        int32_t status_code;
-        std::string error_message;
-
-        WebsocketResult() noexcept : status_code(0), error_message() {}
-        WebsocketResult(const int32_t sc, const std::string& str) noexcept
-            : status_code(sc),
-              error_message(str) {}
-    };
-
     struct Stringable {
         virtual std::string to_string() const { return {}; }
     };

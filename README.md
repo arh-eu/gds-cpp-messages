@@ -197,36 +197,185 @@ struct GDSInterface {
 Your client code simply has to assign a value for these after you create the client:
 
 ```cpp
-	mGDSInterface->on_open    = [](){
-		std::cout << "Client is open!" << std::endl;
-	};
+mGDSInterface->on_open    = [](){
+	std::cout << "Client is open!" << std::endl;
+};
 
-	mGDSInterface->on_close   = [](int status, const std::string& reason){
-  		std::cout << "Client closed: " << reason << " (code: " <<  code << ")" << std::endl;
-	};
+mGDSInterface->on_close   = [](int status, const std::string& reason){
+		std::cout << "Client closed: " << reason << " (code: " <<  code << ")" << std::endl;
+};
 
-	mGDSInterface->on_error   = [](int code, const std::string& reason) {
-		std::cout << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
-	};
+mGDSInterface->on_error   = [](int code, const std::string& reason) {
+	std::cout << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
+};
 
 
-	mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
-		std::cout << "I received a message!" << std::endl;
-	};
-
+mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+	std::cout << "I received a message!" << std::endl;
+};
 ```
 
-After you are done with this, only one thing is left, to start your client with the `start()` method.
+### Starting the client
+To start your client you should simply invoke the `start()` method. This will initalize and create the WebSocket connection to the GDS.
+Keep in mind that this does not send the login message, that is done by manually if you use the SDK.
 
 ```cpp
-	mGDSInterface->start();
+mGDSInterface->start();
+```	
+
+### Creating a message
+
+To create a message you simply have to create an object of the type `GdsMessage`, found in the `gds_lib::gds_types` namespace. Messages have two parts, headers and data parts, you will read about how to create them below.
+
+Many fields and/or members can have `null` values or skipped entirely. This is represented in our code with the `std::optional` wrapper.
+
+For the list of the classes and member variables available, check the `gds_types.hpp` header.
+
+```cpp
+gds_lib::gds_types::GdsMessage fullMessage;
 ```
+
+The structure of the GdsMessage is the following:
+
+```cpp
+struct GdsMessage : public Packable {
+        std::string userName;
+        std::string messageId;
+        int64_t createTime;
+        int64_t requestTime;
+        bool isFragmented;
+        std::optional<std::string> firstFragment;
+        std::optional<std::string> lastFragment;
+        std::optional<int32_t> offset;
+        std::optional<int32_t> fds;
+        int32_t dataType;
+        std::shared_ptr<Packable> messageBody;
+
+        void pack(msgpack::packer<msgpack::sbuffer>&) const override;
+        void unpack(const msgpack::object&) override;
+        void validate() const override;
+        std::string to_string() const override;
+    };
+```
+
+As you see the Message inherits from the `Packable` structure, which is a simple interface for messages that are sent to or by the GDS. These objects have two methods used for packing them via the MessagePack; the `pack(..)` puts them into a messagepack buffer while the `unpack(..)` initalizes them from a messagepack object.
+Packable objects can be validated (the constraints on the objects should be checked here). For easier reading, these objects also have a string representation, that is obtained by the `to_string()` method, inherited from the `Stringable` interface.
+
+```cpp
+    struct Stringable {
+        virtual std::string to_string() const { return {}; }
+    };
+
+    struct Packable : public Stringable {
+        virtual ~Packable() {}
+        virtual void pack(msgpack::packer<msgpack::sbuffer>&) const = 0;
+        virtual void unpack(const msgpack::object&) = 0;
+        virtual void validate() const {}
+    };
+```
+
+#### Message Headers
+
+The information in the header part can be set by simply assigning the values in the `GdsMessage` object.
+
+```cpp
+using namespace std::chrono;
+long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
+fullMessage.username = "this_is_some_user";
+fullMessage.createTime = now;
+//...
+```
+
+#### Message Data
+
+Since the data part can have many value, the `GdsMessage` class simply contains a (smart) pointer to a `Packable` object. The type itself determined by the `dataType` field in the header.
+
+A `SELECT` query can be created by the following:
+
+
+```cpp
+std::shared_ptr<gds_lib::gds_types::GdsQueryRequestMessage> selectBody(new gds_lib::gds_types::GdsQueryRequestMessage());
+
+selectBody->selectString = "SELECT * FROM multi_event";
+selectBody->consistency = "PAGES";
+selectBody->timeout = 0; //using GDS's default timeout
+
+fullMessage.dataType = GdsMsgType::QUERY;
+fullMessage.messageBody = selectBody;
+```
+
+With this the message is assigned with the proper type and the pointer to the memory location of containing the select data.
+
+### Sending the message
+
+Sending a message is simple, you should invoke the `send(..)` method on the GDS interface.
+
+```cpp
+mGDSInterface->send(fullMessage);
+```
+
+### Handling the reply
+
+The message the GDS sends you is received by the GDSInterface, which will invoke the `on_message(..)` callback function (if) you have specified (it) at the initalization.
+
+However, you want to have different logic based on the message type you received. This is done by checking the `dataType` field in the message.
+
+```cpp
+mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+{
+    switch (msg.dataType) {
+    case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
+        //This is a login reply message.
+        break;
+
+    case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
+        //This is an event reply.
+    	 break;
+    //... rest of the cases, as neccessary.
+    default:
+    	break;
+    }
+}
+```
+
+The data part itself is simply represented as a `Packable` pointer, therefore you have to check its type and cast it before you can process it. Usually you want to have separate functions for these processings. These do not need to be lambda expressions, you can invoke regular functions obviously.
+
+```cpp
+auto handleLoginReply = [](
+    GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
+    std::shared_ptr<GdsLoginReplyMessage>& loginReply)
+{
+    if (loginReply->ackStatus == 200)
+    {
+        std::cout << "Login successful!" << std::endl;
+    }
+    else
+    {
+        std::cout << "Error during the login!" << std::endl;
+    }
+};
+
+mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+{
+    switch (msg.dataType) {
+    case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
+        //This is a login reply message.
+
+        std::shared_ptr<GdsLoginReplyMessage> login_body = std::dynamic_pointer_cast<GdsLoginReplyMessage>(msg.messageBody);
+        //process it as you wish. The ConsoleClient will invoke the following function:
+        handleLoginReply(msg, body);
+        break;
+    }
+}
+```
+
+### Closing the client
 
 If you no longer need the client, you should invoke the `close()` method, which sends the standard close message for the WebSocket connection. The destructor also invokes this if it was not closed yet, however, you probably do not want to keep the connection open if it is not needed anymore.
 
-
 ```cpp
-	mGDSInterface->close();
+mGDSInterface->close();
 ```
 
 
