@@ -33,3 +33,14 @@
 
 #Built binaries
 build/
+build/*
+
+#exported reply messages
+console_client/exports/
+console_client/exports/*
+
+#compiled files
+output/
+
+#vscode files
+*.vscode

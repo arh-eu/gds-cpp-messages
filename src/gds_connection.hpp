@@ -14,6 +14,7 @@ namespace gds_lib {
       virtual ~GDSInterface();
 
       virtual void close() = 0;
+      virtual void start() = 0;
       virtual void send(const gds_lib::gds_types::GdsMessage &msg) = 0;
 
       std::function<void()> on_open;

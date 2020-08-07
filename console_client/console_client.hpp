@@ -13,11 +13,10 @@
 #include <mutex>
 #include <exception>
 
-class SimpleGDSClient {
+class GDSConsoleClient {
   std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface;
 
   binary_semaphore_t loginReplySemaphore;
-  binary_semaphore_t nextMsgReceived;
   
   binary_semaphore_t workDone;
 
@@ -34,8 +33,8 @@ class SimpleGDSClient {
   std::string message_id;
 
 public:
-  SimpleGDSClient(const ArgParser&);
-  ~SimpleGDSClient();
+  GDSConsoleClient(const ArgParser&);
+  ~GDSConsoleClient();
 
   void run();
   void close();
@@ -56,6 +55,7 @@ private:
 
 
   void save_message(gds_lib::gds_types::GdsMessage &);
+  void save_binary(const std::vector<std::uint8_t>&, std::string&, const std::string&);
 
 
   gds_lib::gds_types::GdsMessage create_default_message();
@@ -74,11 +74,10 @@ private:
     gds_lib::gds_types::GdsMessage &,
     std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage> &);
   void
-  handleEventDocumentReply(gds_lib::gds_types::GdsMessage &,
-    std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage> &);
-  void
   handleQueryReply(gds_lib::gds_types::GdsMessage &,
    std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> &);
+
+
 
   void onOpen();
   void onClose(int, const std::string&);

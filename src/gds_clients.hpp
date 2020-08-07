@@ -43,12 +43,14 @@ namespace gds_lib {
 			~BaseGDSClient();
 
 			void send(const gds_lib::gds_types::GdsMessage &msg) override;
+			void start() override;
 			void close() override;
 
 		private:
 			  void init();
 			  std::thread m_wsThread;
 			  bool m_closed;
+			  bool m_started;
 		};
 
 		using InsecureGDSClient = BaseGDSClient<SimpleWeb::SocketClient<SimpleWeb::WS> >;
@@ -91,11 +93,21 @@ namespace gds_lib {
   			mWebSocket->on_error   =  std::bind(&BaseGDSClient<ws_client_type>::m_on_error,   this, std::placeholders::_1, std::placeholders::_2);
 
 			m_closed = false;
+			m_started = false;
+		}
 
-			m_wsThread = std::thread([this](){
-  				this->mWebSocket->start();
-  				this->mWebSocket->io_service->run();
-			});
+		template
+		<typename ws_client_type>
+		void BaseGDSClient<ws_client_type>::start()
+		{
+			if(!m_started)
+			{
+				m_wsThread = std::thread([this](){
+	  				this->mWebSocket->start();
+	  				this->mWebSocket->io_service->run();
+				});
+				m_started = true;
+			}
 		}
 
 		template
@@ -103,7 +115,6 @@ namespace gds_lib {
 		void BaseGDSClient<ws_client_type>::m_on_message(connection_sptr /*connection*/,
 			std::shared_ptr<typename ws_client_type::InMessage> in_msg)
 		{
-			std::cerr << "[GDS lib] on_message" << std::endl;
 			if(on_message){
 				std::string message = in_msg->string();
 		        msgpack::object_handle oh = msgpack::unpack(message.data(), message.size());
@@ -129,7 +140,6 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::m_on_open(connection_sptr connection)
 		{
-			std::cerr << "[GDS lib] on_open" << std::endl;
 			mConnection = connection;
 			if(on_open)
 			{
@@ -142,7 +152,6 @@ namespace gds_lib {
 		void BaseGDSClient<ws_client_type>::m_on_close(connection_sptr /*connection*/,
 			  int code, const std::string& reason)
 		{
-			std::cerr << "[GDS lib] on_close" << std::endl;
 			if(on_close)
 			{
 				on_close(code, reason);
@@ -154,7 +163,6 @@ namespace gds_lib {
 		void BaseGDSClient<ws_client_type>::m_on_error(connection_sptr /*connection*/,
 			  const SimpleWeb::error_code &error_code)
 		{
-			std::cerr << "[GDS lib] on_error" << std::endl;
 			if(on_error)
 			{
 				on_error(error_code.value(), error_code.message());
@@ -166,7 +174,10 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::send(const gds_lib::gds_types::GdsMessage &msg)
 		{
-			std::cerr << "[GDS lib] send" << std::endl;
+			if(!m_started)
+			{
+				throw new std::runtime_error("Cannot send message without 'start()' call!");
+			}
         	msgpack::sbuffer                  buffer;
 			msgpack::packer<msgpack::sbuffer> pk(&buffer);
 			
@@ -181,8 +192,7 @@ namespace gds_lib {
 		<typename ws_client_type>
 		void BaseGDSClient<ws_client_type>::close()
 		{
-			std::cerr << "[GDS lib] close" << std::endl;
-			if(!m_closed)
+			if(m_started && !m_closed)
 			{
 				if(mConnection)
 				{

@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 
       for(const auto& name : filenames)
       {
-        std::cout << "The hex value of '" << name <<"' is: 0x" << SimpleGDSClient::to_hex(name) << std::endl;
+        std::cout << "The hex value of '" << name <<"' is: 0x" << GDSConsoleClient::to_hex(name) << std::endl;
       }
     }
     else if(parser.has_arg("help"))
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     {
       std::cout << "Argument parsing successful, starting GDS client.." << std::endl;
       try{
-        SimpleGDSClient client(parser);
+        GDSConsoleClient client(parser);
         client.run();
       }
       catch(const std::exception& e)

@@ -13,7 +13,7 @@
 using namespace gds_lib;
 using namespace gds_lib::gds_types;
 
-SimpleGDSClient::SimpleGDSClient(const ArgParser& _args) : args(_args), connection_open(false) {
+GDSConsoleClient::GDSConsoleClient(const ArgParser& _args) : args(_args), connection_open(false) {
 
   timeout = std::stoul(args.get_arg("timeout")) * 1000;
   std::cout << "Timeout is set to " << timeout << "ms." << std::endl;
@@ -21,32 +21,33 @@ SimpleGDSClient::SimpleGDSClient(const ArgParser& _args) : args(_args), connecti
 
   mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"));
 
-  mGDSInterface->on_open    = std::bind(&SimpleGDSClient::onOpen, this);
-  mGDSInterface->on_close   = std::bind(&SimpleGDSClient::onClose, this, std::placeholders::_1, std::placeholders::_2);
-  mGDSInterface->on_message = std::bind(&SimpleGDSClient::onMessageReceived, this, std::placeholders::_1);
-  mGDSInterface->on_error   = std::bind(&SimpleGDSClient::onError, this, std::placeholders::_1, std::placeholders::_2);
+  mGDSInterface->on_open    = std::bind(&GDSConsoleClient::onOpen, this);
+  mGDSInterface->on_close   = std::bind(&GDSConsoleClient::onClose, this, std::placeholders::_1, std::placeholders::_2);
+  mGDSInterface->on_message = std::bind(&GDSConsoleClient::onMessageReceived, this, std::placeholders::_1);
+  mGDSInterface->on_error   = std::bind(&GDSConsoleClient::onError, this, std::placeholders::_1, std::placeholders::_2);
 
   setupConnection();
 }
 
-SimpleGDSClient::~SimpleGDSClient() { close(); }
+GDSConsoleClient::~GDSConsoleClient() { close(); }
 
-void SimpleGDSClient::close() {
+void GDSConsoleClient::close() {
   if (mGDSInterface) {
     mGDSInterface->close();
     mGDSInterface.reset();
   }
 }
 
-int64_t SimpleGDSClient::now() {
+int64_t GDSConsoleClient::now() {
   using namespace std::chrono;
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
   .count();
 }
 
-void SimpleGDSClient::setupConnection()
+void GDSConsoleClient::setupConnection()
 {
   std::cout << "Initializing WebSocket connection.." << std::endl;
+  mGDSInterface->start();
   if(!connectionReady.wait_for(timeout))
   {
     throw new std::runtime_error("Timeout passed while waiting for connection setup!");
@@ -63,7 +64,7 @@ void SimpleGDSClient::setupConnection()
   }
 }
 
-void SimpleGDSClient::run() {
+void GDSConsoleClient::run() {
   if(connection_open.load())
   {
     if(args.has_arg("query") || args.has_arg("queryall"))
@@ -71,12 +72,6 @@ void SimpleGDSClient::run() {
       std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
       query_all = args.has_arg("queryall");
       send_query(query_string);
-/*
-      if(!nextMsgReceived.wait_for(timeout))
-      {
-        throw new std::runtime_error("Timeout passed while waiting for the query reply message!");
-      }
-      */
     }
     else if (args.has_arg("event"))
     {
@@ -97,7 +92,7 @@ void SimpleGDSClient::run() {
   }
 }
 
-void SimpleGDSClient::login() {
+void GDSConsoleClient::login() {
   GdsMessage fullMessage = create_default_message();
 
   fullMessage.dataType = GdsMsgType::LOGIN;
@@ -112,7 +107,7 @@ void SimpleGDSClient::login() {
   mGDSInterface->send(fullMessage);
 }
 
-void SimpleGDSClient::send_query(const std::string& query_str)
+void GDSConsoleClient::send_query(const std::string& query_str)
 {
   GdsMessage fullMessage = create_default_message();
   message_id = fullMessage.messageId;
@@ -132,10 +127,9 @@ void SimpleGDSClient::send_query(const std::string& query_str)
 }
 
 
-void SimpleGDSClient::send_next_query()
+void GDSConsoleClient::send_next_query()
 {
   GdsMessage fullMessage = create_default_message();
-  fullMessage.messageId = message_id;
 
   fullMessage.dataType = GdsMsgType::GET_NEXT_QUERY;
 
@@ -151,7 +145,7 @@ void SimpleGDSClient::send_next_query()
 }
 
 
-void SimpleGDSClient::send_event(const std::string& event_str, const std::string& file_list)
+void GDSConsoleClient::send_event(const std::string& event_str, const std::string& file_list)
 {
 
   GdsMessage fullMessage = create_default_message(); 
@@ -190,7 +184,7 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
           content.resize(pos);
           file.read(content.data(), pos);
 
-          binaries[SimpleGDSClient::to_hex(filename)] = content;
+          binaries[GDSConsoleClient::to_hex(filename)] = content;
           std::cout << "Adding " << filename << " as an attachment.." << std::endl;
         }
         else
@@ -208,7 +202,7 @@ void SimpleGDSClient::send_event(const std::string& event_str, const std::string
 }
 
 
-void SimpleGDSClient::send_attachment_request(const std::string& request)
+void GDSConsoleClient::send_attachment_request(const std::string& request)
 {
   GdsMessage fullMessage = create_default_message();
   message_id = fullMessage.messageId;
@@ -225,7 +219,7 @@ void SimpleGDSClient::send_attachment_request(const std::string& request)
   mGDSInterface->send(fullMessage);
 }
 
-gds_lib::gds_types::GdsMessage SimpleGDSClient::create_default_message()
+gds_lib::gds_types::GdsMessage GDSConsoleClient::create_default_message()
 {
   int64_t currentTime = now();
   gds_lib::gds_types::GdsMessage fullMessage;
@@ -240,7 +234,7 @@ gds_lib::gds_types::GdsMessage SimpleGDSClient::create_default_message()
 }
 
 
-void SimpleGDSClient::onMessageReceived(
+void GDSConsoleClient::onMessageReceived(
   gds_lib::gds_types::GdsMessage &msg) {
 
   save_message(msg);
@@ -272,16 +266,6 @@ void SimpleGDSClient::onMessageReceived(
     handleAttachmentResponse(msg, body);
   } break;
   break;
-  case gds_types::GdsMsgType::EVENT_DOCUMENT: // Type 8
-
-  break;
-  case gds_types::GdsMsgType::EVENT_DOCUMENT_REPLY: // Type 9
-  {
-    std::shared_ptr<GdsEventDocumentReplyMessage> body =
-    std::dynamic_pointer_cast<GdsEventDocumentReplyMessage>(
-      msg.messageBody);
-    handleEventDocumentReply(msg, body);
-  } break;
   case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
   {
     std::shared_ptr<GdsQueryReplyMessage> body =
@@ -296,7 +280,7 @@ void SimpleGDSClient::onMessageReceived(
 }
 
 
-std::string SimpleGDSClient::to_hex(const std::string& src)
+std::string GDSConsoleClient::to_hex(const std::string& src)
 {
   std::stringstream ss;
   for(auto ch : src)
@@ -306,7 +290,7 @@ std::string SimpleGDSClient::to_hex(const std::string& src)
   return ss.str();
 }
 
-void SimpleGDSClient::handleLoginReply(
+void GDSConsoleClient::handleLoginReply(
     GdsMessage & /*fullMessage*/,
   std::shared_ptr<GdsLoginReplyMessage> &loginReply) {
 
@@ -319,7 +303,7 @@ void SimpleGDSClient::handleLoginReply(
   loginReplySemaphore.notify();
 }
 
-void SimpleGDSClient::handleEventReply(
+void GDSConsoleClient::handleEventReply(
     GdsMessage & fullMessage,
   std::shared_ptr<GdsEventReplyMessage> &eventReply) {
   // do whatever you want to do with this.
@@ -330,22 +314,10 @@ void SimpleGDSClient::handleEventReply(
 
   std::cout << "Full message:" << std::endl;
   std::cout << fullMessage.to_string() << std::endl;
-  nextMsgReceived.notify();
+  workDone.notify();
 }
 
-void SimpleGDSClient::handleEventDocumentReply(
-  gds_lib::gds_types::GdsMessage &,
-  std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage>
-  &eventReply) {
-  // do whatever you want to do with this.
-
-  std::cout << "CLIENT received an EVENT Document reply message! ";
-  std::cout << "Event reply status code is: " << eventReply->ackStatus
-  << std::endl;
-  nextMsgReceived.notify();
-}
-
-void SimpleGDSClient::handleAttachmentRequestReply(
+void GDSConsoleClient::handleAttachmentRequestReply(
   gds_lib::gds_types::GdsMessage &,
   std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage>
   &replyBody) {
@@ -359,40 +331,19 @@ void SimpleGDSClient::handleAttachmentRequestReply(
     AttachmentResult& result = body.result;
     if(result.attachment)
     {
-      std::cout << "Attachment received as well, saving.." << std::endl;
       std::vector<uint8_t>& binary_data = result.attachment.value();
       std::string filename = "attachments/";
       filename += result.attachmentID;
 
-      std::string extension = ".unknown";
       if(result.meta)
       {
         std::string mimetype = result.meta.value();
-        if(mimetype == "image/png"){
-          extension = ".png";
-        }
-        else if(mimetype == "image/jpg" || mimetype == "image/jpeg"){
-          extension = ".jpg";
-        }
-        else if(mimetype == "image/bmp"){
-          extension = ".bmp";
-        }
-        else if(mimetype == "video/mp4"){
-          extension = ".mp4";
-        }
-      }
-      filename += extension;
-
-      FILE* output = fopen(filename.c_str(), "wb");
-      if(output){
-        fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
-        fclose(output);
+        save_binary(binary_data, filename, mimetype);
       }
       else
       {
-        std::cout << "Could not open " + filename + "!" << std::endl;
+        save_binary(binary_data, filename, "");
       }
-
       workDone.notify();
     }
     else
@@ -408,12 +359,10 @@ void SimpleGDSClient::handleAttachmentRequestReply(
     }
     workDone.notify();
   }
-
-  nextMsgReceived.notify();
 }
 
 
-void SimpleGDSClient::handleAttachmentResponse(
+void GDSConsoleClient::handleAttachmentResponse(
   gds_lib::gds_types::GdsMessage &,
   std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage>
   &replyBody) {
@@ -422,38 +371,18 @@ void SimpleGDSClient::handleAttachmentResponse(
 
       AttachmentResult result = replyBody->result;
     
-      std::cout << "Saving attachment.." << std::endl;
       std::vector<uint8_t>& binary_data = result.attachment.value();
       std::string filename = "attachments/";
       filename += result.attachmentID;
 
-      std::string extension = ".unknown";
       if(result.meta)
       {
         std::string mimetype = result.meta.value();
-        if(mimetype == "image/png"){
-          extension = ".png";
-        }
-        else if(mimetype == "image/jpg" || mimetype == "image/jpeg"){
-          extension = ".jpg";
-        }
-        else if(mimetype == "image/bmp"){
-          extension = ".bmp";
-        }
-        else if(mimetype == "video/mp4"){
-          extension = ".mp4";
-        }
-      }
-      filename += extension;
-
-      FILE* output = fopen(filename.c_str(), "wb");
-      if(output){
-        fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
-        fclose(output);
+        save_binary(binary_data, filename, mimetype);
       }
       else
       {
-        std::cout << "Could not open " + filename + "!" << std::endl;
+        save_binary(binary_data, filename, "");
       }
 
       {
@@ -473,16 +402,15 @@ void SimpleGDSClient::handleAttachmentResponse(
         }
         fullMessage.messageBody = requestBody;
 
-        std::cout << "Send attachment response result message to the GDS.." << std::endl;
+        std::cout << "Send attachment ACK back to the GDS.." << std::endl;
         mGDSInterface->send(fullMessage);
       }
 
     workDone.notify();
-    nextMsgReceived.notify();
 }
 
-void SimpleGDSClient::handleQueryReply(
-  GdsMessage & fullMessage,
+void GDSConsoleClient::handleQueryReply(
+  GdsMessage &/* fullMessage*/,
   std::shared_ptr<GdsQueryReplyMessage> &queryReply) {
   // do whatever you want to do with this.
 
@@ -495,8 +423,6 @@ void SimpleGDSClient::handleQueryReply(
     contextDescriptor = queryReply->response->queryContextDescriptor;
   }
 
-  nextMsgReceived.notify();
-
   if(query_all && hasMorePages){
     send_next_query();
   }else{
@@ -504,8 +430,38 @@ void SimpleGDSClient::handleQueryReply(
   }
 }
 
+void GDSConsoleClient::save_binary(const std::vector<std::uint8_t>& binary_data, std::string& filename, const std::string& mimetype)
+{
+  std::cout << "Saving binary attachment.." << std::endl;
+  std::string extension = ".unknown";
+  if(mimetype == "image/png"){
+      extension = ".png";
+  }
+  else if(mimetype == "image/jpg" || mimetype == "image/jpeg"){
+    extension = ".jpg";
+  }
+  else if(mimetype == "image/bmp"){
+    extension = ".bmp";
+  }
+  else if(mimetype == "video/mp4"){
+    extension = ".mp4";
+  }
 
-void SimpleGDSClient::save_message(gds_lib::gds_types::GdsMessage &fullMessage)
+  filename += extension;
+
+  FILE* output = fopen(filename.c_str(), "wb");
+  if(output){
+    fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
+    fclose(output);
+    std::cout << "Attachment saved as '" << filename << "'!" << std::endl;
+  }
+  else
+  {
+    std::cout << "Could not open " + filename + "!" << std::endl;
+  }
+}
+
+void GDSConsoleClient::save_message(gds_lib::gds_types::GdsMessage &fullMessage)
 {
   std::string  filename = "exports/";
   filename += fullMessage.messageId;
@@ -513,7 +469,7 @@ void SimpleGDSClient::save_message(gds_lib::gds_types::GdsMessage &fullMessage)
   std::ofstream output(filename);
   if(output.is_open())
   {
-    std::cout << "Full message is saved as " << filename << std::endl;
+    std::cout << "Reply message is saved as " << filename << std::endl;
     output << fullMessage.to_string();
   }
   else
@@ -522,7 +478,7 @@ void SimpleGDSClient::save_message(gds_lib::gds_types::GdsMessage &fullMessage)
   }
 }
 
-void SimpleGDSClient::onError(int code, const std::string& reason) {
+void GDSConsoleClient::onError(int code, const std::string& reason) {
   std::cerr << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
   if(code == 111 || code == 2){
     connection_open.store(false);
@@ -531,12 +487,12 @@ void SimpleGDSClient::onError(int code, const std::string& reason) {
   }
 }
 
-void SimpleGDSClient::onOpen() {
+void GDSConsoleClient::onOpen() {
   connection_open.store(true);
   connectionReady.notify(); 
 }
 
-void SimpleGDSClient::onClose(int code, const std::string& reason) {
+void GDSConsoleClient::onClose(int code, const std::string& reason) {
   std::cerr << "WebSocket closed: " << reason << " (code: " <<  code << ")" << std::endl;
   connection_open.store(false);
   connectionClosed.notify();

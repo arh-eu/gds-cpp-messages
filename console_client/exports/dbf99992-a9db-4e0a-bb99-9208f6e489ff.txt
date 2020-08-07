@@ -1,1 +1,0 @@
-[user, dbf99992-a9db-4e0a-bb99-9208f6e489ff, 1596632436140, 1596632436140, false, null, null, null, null, 6, [[[dbf99992-a9db-4e0a-bb99-9208f6e489ff], sample_owner_table, attachment_id_1, [owner1], image/png, 3600000, 3600000, <152 bytes>]]]
