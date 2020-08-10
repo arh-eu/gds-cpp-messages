@@ -1,6 +1,7 @@
 #ifndef GDS_CLIENTS_HPP
 #define GDS_CLIENTS_HPP
 
+#include "gds_certs.hpp"
 #include "gds_connection.hpp"
 
 #include <iostream>
@@ -49,6 +50,7 @@ namespace client {
         std::thread m_wsThread;
         bool m_closed;
         bool m_started;
+        std::pair <std::string,std::string> tls_files;
     };
 
     using InsecureGDSClient = BaseGDSClient<SimpleWeb::SocketClient<SimpleWeb::WS> >;
@@ -63,9 +65,10 @@ namespace client {
     }
 
     template <typename ws_client_type>
-    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url, const std::string& cert, const std::string& key)
+    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url, const std::string& cert_path, const std::string& pw)
     {
-        mWebSocket.reset(new ws_client_type(url, false, cert, key));
+        tls_files = parse_cert(cert_path, pw);
+        mWebSocket.reset(new ws_client_type(url, false, tls_files.first, tls_files.second));
         init();
     }
 
@@ -179,6 +182,17 @@ namespace client {
             if (m_wsThread.joinable()) {
                 m_wsThread.join();
             }
+
+            if(tls_files.first.size())
+            {
+                std::remove(tls_files.first.c_str());
+            }
+
+            if(tls_files.second.size())
+            {
+                std::remove(tls_files.second.c_str());
+            }
+
             m_closed = true;
         }
     }

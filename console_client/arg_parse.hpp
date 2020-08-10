@@ -45,11 +45,12 @@ public:
         static struct option long_options[] = {
             { "username", required_argument, NULL, 'n' },
             { "password", required_argument, NULL, 'p' },
-            { "url", required_argument, NULL, 'c' }, //
+            { "url", required_argument, NULL, 'u' },
             { "timeout", required_argument, NULL, 't' },
             { "hex", required_argument, NULL, 'x' },
-            { "help", no_argument, NULL, 's' },
-            //{"tls", no_argument, NULL, 's'},
+            { "help", no_argument, NULL, 'h' },
+            { "cert", required_argument, NULL, 'c'},
+            { "secret", required_argument, NULL, 's'},
 
             { "attachment", required_argument, NULL, 'a' },
             { "attachments", required_argument, NULL, 'f' },
@@ -69,7 +70,7 @@ public:
                 m_values["password"] = std::string(optarg);
                 break;
 
-            case 'c':
+            case 'u':
                 m_values["url"] = std::string(optarg);
                 break;
 
@@ -91,6 +92,14 @@ public:
 
             case 'f':
                 m_values["files"] = std::string(optarg);
+                break;
+
+            case 'c':
+                m_values["cert"] = std::string(optarg);
+                break;
+
+            case 's':
+                m_values["secret"] = std::string(optarg);
                 break;
 
             case 'q':
@@ -116,7 +125,7 @@ public:
                 }
                 m_values["attachment"] = std::string(optarg);
                 break;
-            case 's':
+            case 'h':
                 m_values["help"] = {};
                 create_help();
                 ok = true;

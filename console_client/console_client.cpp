@@ -22,7 +22,14 @@ GDSConsoleClient::GDSConsoleClient(const ArgParser& _args)
     std::cout << "Timeout is set to " << args.get_arg("timeout") << " seconds" << std::endl;
     std::cout << "Setting up ConsoleClient.." << std::endl;
 
-    mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"));
+    if(args.has_arg("cert") && args.has_arg("secret"))
+    {
+        mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("cert"), args.get_arg("secret"));
+    }
+    else
+    {        
+        mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"));
+    }
 
     mGDSInterface->on_open = std::bind(&GDSConsoleClient::onOpen, this);
     mGDSInterface->on_close = std::bind(&GDSConsoleClient::onClose, this, std::placeholders::_1, std::placeholders::_2);
@@ -434,7 +441,7 @@ void GDSConsoleClient::save_binary(const std::vector<std::uint8_t>& binary_data,
 
     filename += extension;
 
-    FILE* output = fopen(filename.c_str(), "wb");
+    std::FILE* output = fopen(filename.c_str(), "wb");
     if (output) {
         fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
         fclose(output);
