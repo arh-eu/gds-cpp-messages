@@ -3,7 +3,7 @@ CXX = g++
 CXX_INCLUDE_PATHS = -I$(SOURCE_DIR)
 CXX_VERSION = -std=c++17
 
-CXX_FLAGS_DEFAULT = -Ofast -Wall -fPIC -Wall $(CXX_VERSION) $(CXX_INCLUDE_PATHS) \
+CXX_FLAGS_DEFAULT = -Ofast -Wall -fPIC $(CXX_VERSION) $(CXX_INCLUDE_PATHS) \
 	-Wextra \
 	-Wmisleading-indentation \
 	-Wmissing-braces \
