@@ -33,15 +33,15 @@ static OStream& operator<<(OStream& os, const std::vector<T>& items)
   auto it = items.begin();
   if(it != items.end())
   {
-    os << *it;
+    os  << '\n' << *it;
     ++it;
     while(it != items.end())
     {
-      os << ", " << *it;
+      os << ", " << '\n' << *it;
       ++it;
     }
   }
-  os << ']';
+  os << '\n' << ']';
   return os;
 }
 
@@ -59,13 +59,13 @@ static OStream& operator<<(OStream& os, const std::array<T, N>& array){
   os << '[';
   if(!array.empty())
   {
-    os << array[0];
-    for(size_t ii = 0;ii<array.size();++ii)
+    os  << '\n' << array[0];
+    for(size_t ii = 1;ii<array.size();++ii)
     {
-      os << ", " << array[ii];
+      os << ", "  << '\n' << array[ii];
     }
   }
-  os << ']';
+  os << '\n' << ']';
   return os;
 }
 
@@ -76,15 +76,15 @@ static OStream& operator<<(OStream& os, const std::map<K,V>& items)
   auto it = items.begin();
   if(it != items.end())
   {
-    os << it->first << ": " << it->second;
+    os  << '\n' << it->first << ": " << it->second;
     ++it;
     while(it != items.end())
     {
-      os << ", " << it->first << ": " << it->second;
+      os << ", "  << '\n' << it->first << ": " << it->second;
       ++it;
     }
   }
-  os << '}';
+  os << '\n' << '}';
   return os;
 }
 
@@ -221,27 +221,27 @@ std::string GdsMessage::to_string() const
 {
   std::stringstream ss;
   ss << std::boolalpha;
-  ss << '[';
+  ss << '[' << '\n';
   ss << userName;
-  ss << ", " << messageId;
-  ss << ", " << createTime;
-  ss << ", " << requestTime;
-  ss << ", " << isFragmented;
-  ss << ", " << firstFragment;
-  ss << ", " << lastFragment;
-  ss << ", " << offset;
-  ss << ", " << fds;
-  ss << ", " << dataType;
+  ss << ", "  << '\n' << messageId;
+  ss << ", "  << '\n' << createTime;
+  ss << ", "  << '\n' << requestTime;
+  ss << ", "  << '\n' << isFragmented;
+  ss << ", "  << '\n' << firstFragment;
+  ss << ", "  << '\n' << lastFragment;
+  ss << ", "  << '\n' << offset;
+  ss << ", "  << '\n' << fds;
+  ss << ", "  << '\n' << dataType;
   if(messageBody)
   {
-    ss << ", " << messageBody->to_string();
+    ss << ", "  << '\n' << messageBody->to_string();
   }
   else
   {
-    ss << ", null";
+    ss  << '\n' << ", null";
   }
 
-  ss << ']';
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -368,7 +368,10 @@ std::string GdsFieldValue::to_string() const {
       ss << items;
     } break;
     case msgpack::type::MAP:
-    //packer.pack(as<std::map<std::string, std::string>>());
+    {
+      auto items = as<std::map<std::string, std::string>>();
+      ss << items;
+    }
     break;
     default:
     break;
@@ -588,23 +591,23 @@ void AttachmentResult::validate() const {}
 std::string AttachmentResult::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << requestIDs;
-  ss << ", " << ownerTable;
-  ss << ", " << attachmentID;
-  ss << ", " << ownerIDs;
-  ss << ", " << meta;
-  ss << ", " << ttl;
-  ss << ", " << to_valid;
+  ss << ", "  << '\n' << ownerTable;
+  ss << ", "  << '\n' << attachmentID;
+  ss << ", "  << '\n' << ownerIDs;
+  ss << ", "  << '\n' << meta;
+  ss << ", "  << '\n' << ttl;
+  ss << ", "  << '\n' << to_valid;
   if(attachment)
   {
-    ss << ", <" << attachment.value().size() << " bytes>";
+    ss << ", "  << '\n' << "<" << attachment.value().size() << " bytes>";
   }
   else
   {
-    ss << ", " << attachment;
+    ss << ", "  << '\n' << attachment;
   }
-  ss << ']';
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -640,11 +643,11 @@ void AttachmentRequestBody::validate() const {}
 std::string AttachmentRequestBody::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << status;
-  ss << ", " << result;
-  ss << ", " << waitTime;
-  ss << ']';
+  ss << ", " << '\n' << result;
+  ss << ", " << '\n' << waitTime;
+  ss << '\n' <<  ']';
   return ss.str();
 }
 
@@ -676,11 +679,11 @@ void AttachmentResponse::validate() const {}
 std::string AttachmentResponse::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << requestIDs;
-  ss << ", " << ownerTable;
-  ss << ", " << attachmentID;
-  ss << ']';
+  ss << ", "  << '\n' << ownerTable;
+  ss << ", "  << '\n' << attachmentID;
+  ss << '\n' << ']';
   return ss.str();
 }
 
@@ -705,10 +708,10 @@ void AttachmentResponseBody::validate() const { result.validate(); }
 std::string AttachmentResponseBody::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << status;
-  ss << ", " << result;
-  ss << ']';
+  ss << ", "  << '\n' << result;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -740,11 +743,11 @@ void EventDocumentResult::validate() const {}
 std::string EventDocumentResult::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << status_code;
-  ss << ", " << notification;
-  ss << ", " << returnings;
-  ss << ']';
+  ss << ", " << '\n' << notification;
+  ss << ", " << '\n' << returnings;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -805,17 +808,17 @@ void QueryContextDescriptor::validate() const {}
 std::string QueryContextDescriptor::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
-  ss << scroll_id;
-  ss << ", " << select_query;
-  ss << ", " << delivered_hits;
-  ss << ", " << query_start_time;
-  ss << ", " << consistency_type;
-  ss << ", " << last_bucket_id;
-  ss << ", " << gds_holder;
-  ss << ", " << field_values;
-  ss << ", " << partition_names;
-  ss << ']';
+  ss << '[' << '\n';
+  ss << scroll_id ;
+  ss << ", "  << '\n' << select_query ;
+  ss << ", "  << '\n' << delivered_hits;
+  ss << ", "  << '\n' << query_start_time;
+  ss << ", "  << '\n' << consistency_type;
+  ss << ", "  << '\n' << last_bucket_id;
+  ss << ", "  << '\n' << gds_holder ;
+  ss << ", "  << '\n' << field_values;
+  ss << ", "  << '\n' << partition_names;
+  ss << '\n' << ']';
   return ss.str();
 }
 
@@ -892,14 +895,14 @@ std::string QueryReplyBody::to_string() const
 {
   std::stringstream ss;
   ss << std::boolalpha;
-  ss << '[';
+  ss << '[' << '\n';
   ss << numberOfHits;
-  ss << ", " << filteredHits;
-  ss << ", " << hasMorePages;
-  ss << ", " << queryContextDescriptor;
-  ss << ", " << fieldDescriptors;
-  ss << ", " << hits;
-  ss << ']';
+  ss << ", "  << '\n' << filteredHits;
+  ss << ", "  << '\n' << hasMorePages;
+  ss << ", "  << '\n' << queryContextDescriptor;
+  ss << ", "  << '\n' << fieldDescriptors;
+  ss << ", "  << '\n' << hits;
+  ss << '\n' << ']';
   return ss.str();
 }
 
@@ -982,20 +985,20 @@ std::string GdsLoginMessage::to_string() const
 {
   std::stringstream ss;
   ss << std::boolalpha;
-  ss << '[';
+  ss << '[' << '\n';
   if(cluster_name){
-    ss << cluster_name << ", ";
+    ss << cluster_name << ", " << '\n';
   }
   ss << serve_on_the_same_connection;
-  ss << ", " << protocol_version_number;
-  ss << ", " << fragmentation_supported;
-  ss << ", " << fragment_transmission_unit;
+  ss << ", "  << '\n' << protocol_version_number;
+  ss << ", "  << '\n' << fragmentation_supported;
+  ss << ", "  << '\n' << fragment_transmission_unit;
   if(reserved_fields)
   {
-    ss << ", " << reserved_fields;
+    ss << ", " << '\n' << reserved_fields;
   }
 
-  ss << ']';
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1058,15 +1061,15 @@ void GdsLoginReplyMessage::validate() const {
 std::string GdsLoginReplyMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << ackStatus;
   if(loginReply){
-    ss << ", " << loginReply;
+    ss << ", "  << '\n' << loginReply;
   }else{
-    ss << ", " << errorDetails;
+    ss << ", "  << '\n' << errorDetails;
   }
-  ss << ackException;
-  ss << ']';
+  ss << '\n' << ", " << ackException;
+  ss << '\n' << ']';
   return ss.str();
 }
 
@@ -1097,11 +1100,11 @@ void GdsEventMessage::validate() const {
 std::string GdsEventMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << operations;
-  ss << ", " << binaryContents;
-  ss << ", " << priorityLevels;
-  ss << ']';
+  ss << ", "  << '\n' << binaryContents;
+  ss << ", "  << '\n' << priorityLevels;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1153,11 +1156,11 @@ void GdsEventReplyMessage::validate() const {
 std::string GdsEventReplyMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << ackStatus;
-  ss << ", " << reply;
-  ss << ", " << ackException;
-  ss << ']';
+  ss << ", "  << '\n' << reply;
+  ss << ", "  << '\n' << ackException;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1167,14 +1170,14 @@ std::string EventReplyBody::EventSubResult::to_string() const
 {
   std::stringstream ss;
   ss << std::boolalpha;
-  ss << '[';
+  ss << '[' << '\n';
   ss << status;
-  ss << ", " << id;
-  ss << ", " << tableName;
-  ss << ", " << created;
-  ss << ", " << version;
-  ss << ", " << values;
-  ss << ']';
+  ss << ", "  << '\n' << id;
+  ss << ", "  << '\n' << tableName;
+  ss << ", "  << '\n' << created;
+  ss << ", "  << '\n' << version;
+  ss << ", "  << '\n' << values;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1182,12 +1185,12 @@ std::string EventReplyBody::EventSubResult::to_string() const
 std::string EventReplyBody::GdsEventResult::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << status;
-  ss << ", " << notification;
-  ss << ", " << fieldDescriptor;
-  ss << ", " << subResults;
-  ss << ']';
+  ss << ", "  << '\n' << notification;
+  ss << ", "  << '\n' << fieldDescriptor;
+  ss << ", "  << '\n' << subResults;
+  ss << '\n'  << ']';
   return ss.str();
 }
 
@@ -1211,8 +1214,8 @@ void GdsAttachmentRequestMessage::validate() const {
 std::string GdsAttachmentRequestMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
-  ss << request;
+  ss << '[' << '\n';
+  ss << request << '\n';
   ss << ']';
   return ss.str();
 }
@@ -1263,11 +1266,11 @@ void GdsAttachmentRequestReplyMessage::validate() const {
 std::string GdsAttachmentRequestReplyMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << ackStatus;
-  ss << ", " << request;
-  ss << ", " << ackException;
-  ss << ']';
+  ss << ", "  << '\n' << request;
+  ss << ", "  << '\n' << ackException;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1291,9 +1294,9 @@ void GdsAttachmentResponseMessage::validate() const { result.validate(); }
 std::string GdsAttachmentResponseMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
-  ss << result;
-  ss << ']';
+  ss << '[' << '\n';
+  ss << result << '\n';
+  ss << ']' << '\n';
   return ss.str();
 }
 
@@ -1347,11 +1350,11 @@ void GdsAttachmentResponseResultMessage::validate() const {
 std::string GdsAttachmentResponseResultMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << ackStatus;
-  ss << ", " << response;
-  ss << ", " << ackException;
-  ss << ']';
+  ss << ", "  << '\n' << response;
+  ss << ", "  << '\n' << ackException;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1431,12 +1434,12 @@ void GdsEventDocumentMessage::validate() const {
 std::string GdsEventDocumentMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << tableName;
-  ss << ", " << fieldDescriptors;
-  ss << ", " << records;
-  ss << ", " << returnings;
-  ss << ']';
+  ss << ", "  << '\n' << fieldDescriptors;
+  ss << ", "  << '\n' << records;
+  ss << ", "  << '\n' << returnings;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1498,11 +1501,11 @@ void GdsEventDocumentReplyMessage::validate() const {
 std::string GdsEventDocumentReplyMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << ackStatus;
-  ss << ", " << results;
-  ss << ", " << ackException;
-  ss << ']';
+  ss << ", "  << '\n'<< results;
+  ss << ", "  << '\n'<< ackException;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1548,15 +1551,15 @@ void GdsQueryRequestMessage::validate() const {
 std::string GdsQueryRequestMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << selectString;
-  ss << ", " << consistency;
-  ss << ", " << timeout;
+  ss << ", "  << '\n'<< consistency;
+  ss << ", "  << '\n'<< timeout;
   if(queryPageSize && queryType){
-    ss << ", " << queryPageSize.value();
-    ss << ", " << queryType.value();
+    ss << ", "  << '\n'<< queryPageSize.value();
+    ss << ", "  << '\n'<< queryType.value();
   }
-  ss << ']';
+  ss  << '\n' << ']';
   return ss.str();
 }
 
@@ -1609,11 +1612,11 @@ void GdsQueryReplyMessage::validate() const {
 std::string GdsQueryReplyMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << ackStatus;
-  ss << ", " << response;
-  ss << ", " << ackException;
-  ss << ']';
+  ss << ", "  << '\n'<< response;
+  ss << ", "  << '\n'<< ackException;
+  ss << '\n' << ']';
   return ss.str();
 }
 
@@ -1640,10 +1643,10 @@ void GdsNextQueryRequestMessage::validate() const {
 std::string GdsNextQueryRequestMessage::to_string() const
 {
   std::stringstream ss;
-  ss << '[';
+  ss << '[' << '\n';
   ss << contextDescriptor;
-  ss << ", " << timeout;
-  ss << ']';
+  ss << ", "  << '\n' << timeout;
+  ss  << '\n' << ']';
   return ss.str();
 }
 
