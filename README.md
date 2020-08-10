@@ -55,9 +55,12 @@ To use the GDS C++ libraries in your application, you need the build and link th
 ```sh
 git clone https://github.com/arh-eu/gds-cpp-sdk.git
 cd gds-cpp-sdk
-make
+mkdir build
+cd build
+cmake ..
+make install
 ```
-This will create a folder named `output` containing two other folders - the `lib` folder inside will contain the static version for the GDS SDK (this `gdslib.a` file will be used for our console client and examples).
+This will create a folder named `output` int your project root folder, containing two other folders - the `lib` folder inside will contain the static version for the GDS SDK (this `gdslib.a` file will be used for our console client and examples).
 
 The `include` folder contains the header files which should be used. These use the standard C++ headers and the `<msgpack.hpp>` for the MessagePack structures.
 
