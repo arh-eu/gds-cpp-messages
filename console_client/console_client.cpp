@@ -398,8 +398,6 @@ void GDSConsoleClient::handleQueryReply(
     GdsMessage& /* fullMessage*/,
     std::shared_ptr<GdsQueryReplyMessage>& queryReply)
 {
-    // do whatever you want to do with this.
-
     std::cout << "CLIENT received a SELECT reply message! ";
     std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
 

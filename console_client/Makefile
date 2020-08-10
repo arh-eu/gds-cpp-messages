@@ -1,6 +1,6 @@
 CXX = g++
 
-CXX_INCLUDE_PATHS = -I$(GDS_INCLUDE_PATH) -I$(SOURCE_DIR)
+CXX_INCLUDE_PATHS = -I$(GDS_INCLUDE_PATH) -I$(SOURCE_DIR) -isystem../submodules/asio/asio/include 
 CXX_VERSION = -std=c++17
 
 CXX_FLAGS = -Ofast -Wall $(CXX_VERSION) $(CXX_INCLUDE_PATHS) \
@@ -17,8 +17,7 @@ CXX_FLAGS = -Ofast -Wall $(CXX_VERSION) $(CXX_INCLUDE_PATHS) \
     -Wdouble-promotion \
     -Wshadow \
     -Wswitch \
-    -Werror=return-type \
-    -g
+    -Werror=return-type
 
 ASIO_DECL := -DASIO_STANDALONE
 
@@ -26,11 +25,10 @@ LD_FLAGS = -L$(GDS_LIB_PATH) ../output/lib/libgds.a -lcrypto -lssl -lpthread -lr
 
 NAME = gds_console_client.exe
 
-GDS_INCLUDE_PATH = ../output/include/
+GDS_INCLUDE_PATH = ../output/include
 GDS_LIB_PATH = ../output/lib
 
 SOURCE_DIR = .
-#SOURCE_FILES = $(shell find $(SOURCE_DIR) -type f -name "*.cpp")
 SOURCE_FILES = main.cpp console_client.cpp
 OUTPUT_DIR = .
 
