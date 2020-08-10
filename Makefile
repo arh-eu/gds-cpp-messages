@@ -56,6 +56,7 @@ copy_includes: $(INCLUDE_DIR)
 	cp $(SOURCE_DIR)/gds_connection.hpp $(INCLUDE_DIR)
 	cp $(SOURCE_DIR)/gds_types.hpp $(INCLUDE_DIR)
 	cp $(SOURCE_DIR)/semaphore.hpp $(INCLUDE_DIR)
+	cp $(SOURCE_DIR)/gds_uuid.hpp $(INCLUDE_DIR)
 	
 .PHONY: clean all static shared
 clean: 

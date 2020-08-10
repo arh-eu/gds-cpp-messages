@@ -171,6 +171,7 @@ A `semaphore.hpp` is also added. This is not needed for user created application
 
 Please note that the usual `ws://` or `wss://` prefix is _not_ needed in the URL (it will lead to a connection refusal as the `SimpleWebSocketClient` expects the URL without the scheme).
 
+If you want to use `UUID`s for message ID, you can use the `gds_uuid.hpp` header, which has the `uuid::generate_uuid_v4();` method that returns a random `uuid` formatted string.
 
 ### Creating the Client
 
@@ -216,7 +217,7 @@ mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
 ```
 
 ### Starting the client
-To start your client you should simply invoke the `start()` method. This will initalize and create the WebSocket connection to the GDS.
+To start your client you should simply invoke the `start()` method. This will initialize and create the WebSocket connection to the GDS.
 Keep in mind that this does not send the login message, that is done by manually if you use the SDK.
 
 ```cpp
@@ -258,7 +259,7 @@ struct GdsMessage : public Packable {
     };
 ```
 
-As you see the Message inherits from the `Packable` structure, which is a simple interface for messages that are sent to or by the GDS. These objects have two methods used for packing them via the MessagePack; the `pack(..)` puts them into a messagepack buffer while the `unpack(..)` initalizes them from a messagepack object.
+As you see the Message inherits from the `Packable` structure, which is a simple interface for messages that are sent to or by the GDS. These objects have two methods used for packing them via the MessagePack; the `pack(..)` puts them into a messagepack buffer while the `unpack(..)` initializes them from a messagepack object.
 Packable objects can be validated (the constraints on the objects should be checked here). For easier reading, these objects also have a string representation, that is obtained by the `to_string()` method, inherited from the `Stringable` interface.
 
 ```cpp
@@ -317,7 +318,7 @@ mGDSInterface->send(fullMessage);
 
 ### Handling the reply
 
-The message the GDS sends you is received by the GDSInterface, which will invoke the `on_message(..)` callback function (if) you have specified (it) at the initalization.
+The message the GDS sends you is received by the GDSInterface, which will invoke the `on_message(..)` callback function (if) you have specified (it) at the initialization.
 
 However, you want to have different logic based on the message type you received. This is done by checking the `dataType` field in the message.
 
@@ -364,10 +365,227 @@ mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
 
         std::shared_ptr<GdsLoginReplyMessage> login_body = std::dynamic_pointer_cast<GdsLoginReplyMessage>(msg.messageBody);
         //process it as you wish. The ConsoleClient will invoke the following function:
-        handleLoginReply(msg, body);
+        handleLoginReply(msg, login_body);
         break;
     }
 }
+```
+
+### Creating / reading attachments
+
+You simply need to read a file and attach it as `std::vector<std::uint8_t>` to the messages. Do not forget that they should be stored with their hex IDs in the event map.
+
+```cpp
+    std::shared_ptr<GdsEventMessage> eventBody(new GdsEventMessage());
+
+	//some proper EVENT SQL string should be used based on what you want to insert/update.
+    eventBody->operations = "";
+
+    //this map is used to store the binaries
+    std::map<std::string, byte_array> binaries;
+
+    //the file is opened as binary for reading.
+    //you can seek its end automatically to get the number of bytes in it 
+    //therefore making the vector insertion faster to avoid size duplication and moving during reading.
+    std::basic_ifstream<std::uint8_t> file(filename, std::ios::binary | std::ios::ate);
+    auto pos = file.tellg();
+
+    std::vector<std::uint8_t> content;
+    content.reserve(pos);
+
+    file.seekg(0, std::ios::beg);
+    content.resize(pos);
+    file.read(content.data(), pos);
+
+    //the content is stored as a hex ID in the map from the filename
+	std::stringstream ss;
+	for (auto ch : filename) {
+	    ss << std::hex << (int)ch;
+	}
+	std::string hex_filename = ss.str();
+
+    binaries[hex_filename] = content;
+
+    //assigning the content to the event message
+    eventBody->binaryContents = binaries;
+
+    //send or add additional things if you would like
+```
+
+### Attachment requests / response
+
+As defined in the [Attachment Request ACK Wiki](https://github.com/arh-eu/gds/wiki/Message-Data#attachment-request-ack---data-type-5), Attachment Request ACKs might not have the attachment in their body. In these cases you should await until the [Attachment Response](https://github.com/arh-eu/gds/wiki/Message-Data#attachment-response---data-type-6) is received with the binaries. 
+
+Note however, that these messages should be ACKd with an [Attachment Response ACK](https://github.com/arh-eu/gds/wiki/Message-Data#attachment-response-ack---data-type-7). An example for this can be seen here:
+
+```cpp
+std::shared_ptr<GdsAttachmentResponseMessage> replyBody; //received from the GDS
+
+AttachmentResult result = replyBody->result;
+//This result contains the attachment(s).
+//The ACK should include what you received and if they got successfully stored.
+
+
+GdsMessage fullMessage;
+//message headers set up as needed
+
+fullMessage.dataType = GdsMsgType::ATTACHMENT_REPLY;
+std::shared_ptr<GdsAttachmentResponseResultMessage> requestBody(new GdsAttachmentResponseResultMessage());
+{
+    requestBody->ackStatus = 200;
+    requestBody->response = {};
+    requestBody->response->status = 201;
+    requestBody->response->result.requestIDs = result.requestIDs;
+    requestBody->response->result.ownerTable = result.ownerTable;
+    requestBody->response->result.attachmentID = result.attachmentID;
+}
+
+fullMessage.messageBody = requestBody;
+mGDSInterface->send(fullMessage);
+
+```
+
+### Saving / exporting attachments
+
+The attachments you receive are treated in the code as binary arrays, namely `std::vector<std::uint8_t>`.
+You can simply save their content to get the attachment in your system to be open in an other application. There is also a type alias for this type as `byte_array` in the `gds_lib::gds_types` namespace.
+
+```cpp
+std::vector<std::uint8_t> binary_data; // = result.attachment.value();
+
+//the file should be opened for writing in binary mode.
+//you can use std::ofstream as well if you like.
+FILE* output = fopen("my_attachment", "wb");
+fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
+fclose(output);
+```
+
+### Next Query pages
+
+If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
+```cpp
+ std::shared_ptr<GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
+if (queryReply->response) {
+	//process the rest as needed.
+
+	if (queryReply->response->hasMorePages) {
+
+        GdsMessage fullMessage;
+        //setup as needed
+
+	    fullMessage.dataType = GdsMsgType::GET_NEXT_QUERY;
+	    std::shared_ptr<GdsNextQueryRequestMessage> selectBody(new GdsNextQueryRequestMessage());
+	    {
+	        selectBody->contextDescriptor = queryReply->response->queryContextDescriptor;
+	        selectBody->timeout = 0;
+	    }
+	    fullMessage.messageBody = selectBody;
+
+	    mGDSInterface->send(fullMessage);
+    }
+}
+else {
+    //this is usually some error in the select, check the error message.
+}
+
+```
+
+
+### Saving messages
+
+Every message has the `to_string()` method inherited through the `Packable : Stringable` classes.
+You can use these to save the messages. Binary contents are represented as their size in these, so an image is displayed as `<2852 bytes>` instead of the bytes themselves.
+
+### Handling errors
+
+The ACK messages have their status codes, which is available by the `ackStatus` field. The error message is in the `ackException` field. Since it might not be present (or set `null` by the GDS), this is an `std::optional<>` field as well.
+
+### Field types
+
+Fields sent by the GDS can have multiple types, seen in the [Wiki](https://github.com/arh-eu/gds/wiki/Message-Data#Message-field-descriptors).
+
+This is represented internally as an `std::any<>` by the SDK. The fields themselves are of type `GdsFieldValue`, which structure is:
+
+```cpp
+struct GdsFieldValue : public Packable {
+    std::any value;
+    msgpack::type::object_type type;
+    template <typename T>
+    T as() const { return std::any_cast<T>(value); }
+    std::string to_string() const override;
+
+    void pack(msgpack::packer<msgpack::sbuffer>&) const override;
+    void unpack(const msgpack::object&) override;
+    void validate() const override;
+};
+
+```
+
+The `type` can be used to indicate the original type which can be used to call the `as<T>` method to cast it to a proper value.
+
+```cpp
+GdsFieldValue obj;
+
+  switch (obj.type) {
+    case msgpack::type::NIL:
+    {
+    	//value is NULL.
+    }
+    break;
+    case msgpack::type::BOOLEAN:
+    {
+    	bool value = obj.as<bool>();
+    }
+    break;
+    case msgpack::type::POSITIVE_INTEGER:
+    {
+    	std::uint64_t value = obj.as<std::uint64_t>();
+    }
+    break;
+    case msgpack::type::NEGATIVE_INTEGER:
+    {
+
+    	std::int64_t value = obj.as<std::int64_t>();
+    }
+    break;
+    case msgpack::type::FLOAT32:
+    {
+		float value = obj.as<float>();
+    }
+    break;
+    case msgpack::type::FLOAT64:
+    {
+    	double value = obj.as<double>();
+    }
+    break;
+    case msgpack::type::STR:
+    {
+    	std::string value = obj.as<std::string>();
+    }
+    break;
+    case msgpack::type::BIN:
+    {
+    	//using byte_array = std::vector<std::uint8_t>;
+    	byte_array value = obj.as<byte_array>();
+    }
+    break;
+    case msgpack::type::ARRAY:
+    {
+      std::vector<GdsFieldValue> value = obj.as<std::vector<GdsFieldValue>>();
+      //...
+      //first type should be paresd recursively if not empty.
+      //then all can be casted simply with the `as<T>()` call.
+    }
+    break;
+    case msgpack::type::MAP:
+    {
+    	std::map<std::string, std::string> value = obj.as<std::map<std::string, std::string>>();
+    }
+    break;
+    default:
+    	throw std::runtime_error("Unknown field value type");
+  }
+
 ```
 
 ### Closing the client
@@ -381,14 +599,8 @@ mGDSInterface->close();
 
 ### Implementation-defined behaviours
 
-Since the size of the fundamental types (like `int` or `long`) is not specified by the standard but are left implementation-defined, you should avoid using these in messages, and use the exact sized-types like `std::int32_t` and `std::int64_t` found in the `<cstdint>` header (if present on your system).
-
-Classes provided by our code works with these types, please be careful and use those in your applications as well, otherwise you might find yourself in an undefined-behaviour that cannot be tracked easily.
+Since the size of the fundamental types (like `int` or `long`) is not specified by the standard but are left implementation-defined, you probably want to avoid using these in messages, and use the exact sized-types like `std::int32_t` and `std::int64_t` found in the `<cstdint>` header (if present on your system). However, if you know your compiler and your system and the size of your types, feel free to use them. Otherwise you might find yourself in an undefined-behaviour that cannot be tracked easily.
 
 ### Multi-threading
 
 The SDK is written multi-threaded, meaning the WebSocket client runs on a separate thread - notifying you on the callbacks should anything happen.
-
-## Examples
-
-The `examples` folder has some running examples for the setup - you can use the server simulator for your needs (found [here](https://github.com/arh-eu/gds-server-simulator)). It's sequential by mean (by awaiting semaphores every time there's something to wait for), to make the communication and the replies clear and simplified, of course you will not need these in a live app.
