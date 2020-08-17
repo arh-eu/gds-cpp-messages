@@ -186,7 +186,7 @@ Please be careful, as the table name in this examples should be in double quotes
 
 The GDS might not have the specified attachment stored, in this case it can take a while until it can send you back its response. In this case your client will send back an ACK message which means that you have successfully received the attachments.
 
-Your attachments will be saved in the attachments folder with the messageID as their file name.
+Your attachments will be saved in the attachments folder with the attachmentID as their file name.
 
 #### QUERY
 
