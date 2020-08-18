@@ -244,7 +244,7 @@ mGDSInterface->on_open    = [](){
 };
 
 mGDSInterface->on_close   = [](int status, const std::string& reason){
-		std::cout << "Client closed: " << reason << " (code: " <<  code << ")" << std::endl;
+		std::cout << "Client closed: " << reason << " (status: " <<  status << ")" << std::endl;
 };
 
 mGDSInterface->on_error   = [](int code, const std::string& reason) {
@@ -324,7 +324,7 @@ The information in the header part can be set by simply assigning the values in 
 using namespace std::chrono;
 long now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
-fullMessage.username = "this_is_some_user";
+fullMessage.userName = "this_is_some_user";
 fullMessage.createTime = now;
 //...
 ```
@@ -365,7 +365,6 @@ However, you want to have different logic based on the message type you received
 
 ```cpp
 mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
-{
     switch (msg.dataType) {
     case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
         //This is a login reply message.
@@ -378,7 +377,7 @@ mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
     default:
     	break;
     }
-}
+};
 ```
 
 The data part itself is simply represented as a `Packable` pointer, therefore you have to check its type and cast it before you can process it. Usually you want to have separate functions for these processings. These do not need to be lambda expressions, you can invoke regular functions obviously.
@@ -399,7 +398,6 @@ auto handleLoginReply = [](
 };
 
 mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
-{
     switch (msg.dataType) {
     case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
         //This is a login reply message.
@@ -409,7 +407,7 @@ mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
         handleLoginReply(msg, login_body);
         break;
     }
-}
+};
 ```
 
 ### Creating / reading attachments
