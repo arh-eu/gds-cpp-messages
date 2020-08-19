@@ -60,7 +60,7 @@ cd build
 cmake ..
 make install
 ```
-This will create a folder named `output` int your project root folder, containing two other folders - the `lib` folder inside will contain the static version for the GDS SDK (this `gdslib.a` file will be used for our console client and examples).
+This will create a folder named `output` in your project root folder, containing two other folders - the `lib` folder inside will contain the static version for the GDS SDK (this `gdslib.a` file will be used for our console client).
 
 The `include` folder contains the header files which should be used. These use the standard C++ headers and the `<msgpack.hpp>` for the MessagePack structures.
 
@@ -198,17 +198,14 @@ A simple SELECT query statement can be specified by the following command:
 
 The result will be saved to the `exports` folder, with the message ID as the filename.
 
-It is possible, that your query has more than one pages available. By default, only 300 rows will be returned by the GDS (if you do not specify the LIMIT in your SQL and the config does not set another limit for this). In these cases you have send a Next Query Page request, which will give you the next 300 records found.
-
-If you do not want to bother by manually sending these requests, you can use the -queryall flag instead, that will automatically send these Next Query Page requests as long as there are additional pages with records available.
-
+It is possible, that your query has more than one pages available. By default, only 300 rows will be returned by the GDS (if you do not specify the LIMIT in your SQL and the config does not set another limit for this). In these cases you can use the -queryall flag instead, with that you will query all pages not just the first one.
 
 ## SDK usage
 
 The code is separated into 3 different header files. The GDS Message types are declared in the `gds_types.hpp` file.
 The core functions for communication can be found in the `gds_connection.hpp` header.
 
-A `semaphore.hpp` is also added. This is not needed for user created applications, but our examples and console clients use them.
+A `semaphore.hpp` is also added. This is not needed for user created applications, but our console client uses them.
 
 Please note that the usual `ws://` or `wss://` prefix is _not_ needed in the URL (it will lead to a connection refusal as the `SimpleWebSocketClient` expects the URL without the scheme).
 
@@ -216,7 +213,7 @@ If you want to use `UUID`s for message ID, you can use the `gds_uuid.hpp` header
 
 ### Creating the Client
 
-You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has two overloads depending on if you want to use TLS security or not. If not, the only url that should be passed is the GDS gate url (fe. `192.168.111.222:8888/gate`).
+You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has two overloads depending on if you want to use TLS security or not. If not, the only argument that should be passed is the GDS gate url (fe. `192.168.111.222:8888/gate`).
 
 ```cpp
 std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate");
@@ -490,7 +487,7 @@ The attachments you receive are treated in the code as binary arrays, namely `st
 You can simply save their content to get the attachment in your system to be open in an other application. There is also a type alias for this type as `byte_array` in the `gds_lib::gds_types` namespace.
 
 ```cpp
-std::vector<std::uint8_t> binary_data; // = result.attachment.value();
+std::vector<std::uint8_t> binary_data;  // = result.attachment.value();
 
 //the file should be opened for writing in binary mode.
 //you can use std::ofstream as well if you like.
@@ -501,7 +498,7 @@ fclose(output);
 
 ### Next Query pages
 
-If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
+The query message will query only the first page. If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
 ```cpp
  std::shared_ptr<GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
 if (queryReply->response) {
