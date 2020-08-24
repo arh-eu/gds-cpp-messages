@@ -116,6 +116,10 @@ void GDSConsoleClient::login()
         loginBody->serve_on_the_same_connection = false;
         loginBody->protocol_version_number = (2 << 16 | 9);
         loginBody->fragmentation_supported = false;
+        if(args.has_arg("password")) {
+            loginBody->reserved_fields = std::vector<std::string>{};
+            loginBody->reserved_fields.value().emplace_back(args.get_arg("password"));
+        }
     }
     fullMessage.messageBody = loginBody;
     mGDSInterface->send(fullMessage);
