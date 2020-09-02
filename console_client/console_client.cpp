@@ -114,7 +114,8 @@ void GDSConsoleClient::login()
     std::shared_ptr<GdsLoginMessage> loginBody(new GdsLoginMessage());
     {
         loginBody->serve_on_the_same_connection = false;
-        loginBody->protocol_version_number = (2 << 16 | 9);
+        //the current GDS version is 5.1
+        loginBody->protocol_version_number = (5 << 16 | 1);
         loginBody->fragmentation_supported = false;
         if(args.has_arg("password")) {
             loginBody->reserved_fields = std::vector<std::string>{};
