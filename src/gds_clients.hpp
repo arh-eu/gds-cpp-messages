@@ -3,8 +3,10 @@
 
 #include "gds_certs.hpp"
 #include "gds_connection.hpp"
+#include "gds_uuid.hpp"
 
 #include <iostream>
+#include <chrono>
 #include <memory>
 #include <thread>
 
@@ -31,8 +33,12 @@ namespace client {
             const SimpleWeb::error_code& error_code);
 
     public:
-        BaseGDSClient(const std::string& url);
-        BaseGDSClient(const std::string& url, const std::string& cert, const std::string& cert_pw);
+        //NO AUTH
+        BaseGDSClient(const std::string& url, const std::string& username);
+        //PASSWORD AUTH
+        BaseGDSClient(const std::string& url, const std::string& username, const std::string& password);
+        //TLS AUTH
+        BaseGDSClient(const std::string& url, const std::string& username, const std::string& cert, const std::string& cert_pw);
 
         BaseGDSClient(const BaseGDSClient<ws_client_type>&) = delete;
         BaseGDSClient(const BaseGDSClient<ws_client_type>&&) = delete;
@@ -40,17 +46,20 @@ namespace client {
         BaseGDSClient& operator=(const BaseGDSClient<ws_client_type>&) = delete;
         BaseGDSClient& operator=(const BaseGDSClient<ws_client_type>&&) = delete;
         ~BaseGDSClient();
-
         void send(const gds_lib::gds_types::GdsMessage& msg) override;
         void start() override;
         void close() override;
 
     private:
+        void login();
         void init();
         std::thread m_wsThread;
         bool m_closed;
         bool m_started;
+        bool m_logged_in;
         std::pair <std::string,std::string> tls_files;
+        std::string m_username;
+        std::string m_password;
     };
 
     using InsecureGDSClient = BaseGDSClient<SimpleWeb::SocketClient<SimpleWeb::WS> >;
@@ -58,19 +67,29 @@ namespace client {
 
     //impl.
     template <typename ws_client_type>
-    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url)
-        : mWebSocket(new ws_client_type(url))
+    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url, const std::string& username)
+        : mWebSocket(new ws_client_type(url)), m_username(username)
     {
         init();
     }
 
     template <typename ws_client_type>
-    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url, const std::string& cert_path, const std::string& pw)
+    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url, const std::string& username, const std::string& password)
+    : mWebSocket(new ws_client_type(url)), m_username(username), m_password(password) 
     {
-        tls_files = parse_cert(cert_path, pw);
+        init();
+    }
+
+    template <typename ws_client_type>
+    BaseGDSClient<ws_client_type>::BaseGDSClient(const std::string& url, const std::string& username, 
+        const std::string& cert_path, const std::string& cert_pw)
+    :m_username(username)
+    {
+        tls_files = parse_cert(cert_path, cert_pw);
         mWebSocket.reset(new ws_client_type(url, false, tls_files.first, tls_files.second));
         init();
     }
+
 
     template <typename ws_client_type>
     BaseGDSClient<ws_client_type>::~BaseGDSClient()
@@ -114,7 +133,17 @@ namespace client {
             gds_lib::gds_types::GdsMessage msg;
             try {
                 msg.unpack(replyMsg);
-                on_message(msg);
+                if(msg.dataType == gds_lib::gds_types::GdsMsgType::LOGIN_REPLY) {
+                    std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage> body
+                    = std::dynamic_pointer_cast<gds_lib::gds_types::GdsLoginReplyMessage>(msg.messageBody);
+
+                    if(on_login) {
+                        on_login(body->ackStatus == 200, body);                        
+                    }
+
+                } else {
+                    on_message(msg);
+                }
             }
             catch (gds_lib::gds_types::invalid_message_error& e) {
                 std::cerr << "Invalid format on the incoming message!" << std::endl;
@@ -131,9 +160,10 @@ namespace client {
     void BaseGDSClient<ws_client_type>::m_on_open(connection_sptr connection)
     {
         mConnection = connection;
-        if (on_open) {
+        if(on_open) {
             on_open();
         }
+        login();
     }
 
     template <typename ws_client_type>
@@ -152,6 +182,36 @@ namespace client {
         if (on_error) {
             on_error(error_code.value(), error_code.message());
         }
+    }
+
+
+    template <typename ws_client_type>
+    void BaseGDSClient<ws_client_type>::login()
+    {
+        gds_lib::gds_types::GdsMessage fullMessage;
+
+        using namespace std::chrono;
+        auto currentTime= duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        fullMessage.userName = m_username;
+        fullMessage.messageId = uuid::generate_uuid_v4();
+        fullMessage.createTime = currentTime;
+        fullMessage.requestTime = currentTime;
+        fullMessage.isFragmented = false;
+
+        fullMessage.dataType = gds_lib::gds_types::GdsMsgType::LOGIN;
+
+        std::shared_ptr<gds_lib::gds_types::GdsLoginMessage> loginBody(new gds_lib::gds_types::GdsLoginMessage());
+        {
+            loginBody->serve_on_the_same_connection = false;
+            loginBody->protocol_version_number = (5 << 16 | 1);
+            loginBody->fragmentation_supported = false;
+            if(m_password.length()) {
+                loginBody->reserved_fields = std::vector<std::string>{};
+                loginBody->reserved_fields.value().emplace_back(m_password);
+            }
+        }
+        fullMessage.messageBody = loginBody;
+        send(fullMessage);
     }
 
     template <typename ws_client_type>

@@ -44,7 +44,6 @@ private:
 
     int64_t now();
 
-    void login();
     void send_query(const std::string&);
     void send_next_query();
     void send_event(const std::string&, const std::string&);
@@ -56,9 +55,6 @@ private:
     gds_lib::gds_types::GdsMessage create_default_message();
 
     gds_lib::gds_types::QueryContextDescriptor contextDescriptor;
-    void
-    handleLoginReply(gds_lib::gds_types::GdsMessage&,
-        std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>&);
     void
     handleEventReply(gds_lib::gds_types::GdsMessage&,
         std::shared_ptr<gds_lib::gds_types::GdsEventReplyMessage>&);
@@ -76,6 +72,7 @@ private:
     void onClose(int, const std::string&);
     void onMessageReceived(gds_lib::gds_types::GdsMessage&);
     void onError(int, const std::string&);
+    void onLogin(bool success,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>);
 };
 
 #endif //CONSOLE_CLIENT_HPP

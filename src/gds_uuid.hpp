@@ -9,7 +9,7 @@ static std::mt19937 gen(std::random_device{}());
 static std::uniform_int_distribution<> dis{ 0, 15 };
 static std::uniform_int_distribution<> dis2{ 8, 11 };
 
-std::string generate_uuid_v4()
+static std::string generate_uuid_v4()
 {
     std::stringstream ss;
     int i;

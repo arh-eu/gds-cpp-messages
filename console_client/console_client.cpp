@@ -24,17 +24,23 @@ GDSConsoleClient::GDSConsoleClient(const ArgParser& _args)
 
     if(args.has_arg("cert") && args.has_arg("secret"))
     {
-        mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("cert"), args.get_arg("secret"));
+        mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("username"), args.get_arg("cert"), args.get_arg("secret"));
     }
     else
     {        
-        mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"));
+        if(args.has_arg("password")){
+            mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("username"), args.get_arg("password"));
+        }
+        else{
+            mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("username"));
+        }
     }
 
     mGDSInterface->on_open = std::bind(&GDSConsoleClient::onOpen, this);
     mGDSInterface->on_close = std::bind(&GDSConsoleClient::onClose, this, std::placeholders::_1, std::placeholders::_2);
     mGDSInterface->on_message = std::bind(&GDSConsoleClient::onMessageReceived, this, std::placeholders::_1);
     mGDSInterface->on_error = std::bind(&GDSConsoleClient::onError, this, std::placeholders::_1, std::placeholders::_2);
+    mGDSInterface->on_login = std::bind(&GDSConsoleClient::onLogin, this, std::placeholders::_1, std::placeholders::_2);
 
     setupConnection();
 }
@@ -66,8 +72,6 @@ void GDSConsoleClient::setupConnection()
 
     if (connection_open.load()) {
         std::cout << "WebSocket connection with GDS successful!" << std::endl;
-        std::cout << "Sending login message.." << std::endl;
-        login();
         std::cout << "Awaiting login ACK.." << std::endl;
         if (!loginReplySemaphore.wait_for(timeout)) {
             throw new std::runtime_error("Timeout passed while waiting for login reply!");
@@ -103,27 +107,6 @@ void GDSConsoleClient::run()
             std::cout << "The GDS did not send its message in time!" << std::endl;
         }
     }
-}
-
-void GDSConsoleClient::login()
-{
-    GdsMessage fullMessage = create_default_message();
-
-    fullMessage.dataType = GdsMsgType::LOGIN;
-
-    std::shared_ptr<GdsLoginMessage> loginBody(new GdsLoginMessage());
-    {
-        loginBody->serve_on_the_same_connection = false;
-        //the current GDS version is 5.1
-        loginBody->protocol_version_number = (5 << 16 | 1);
-        loginBody->fragmentation_supported = false;
-        if(args.has_arg("password")) {
-            loginBody->reserved_fields = std::vector<std::string>{};
-            loginBody->reserved_fields.value().emplace_back(args.get_arg("password"));
-        }
-    }
-    fullMessage.messageBody = loginBody;
-    mGDSInterface->send(fullMessage);
 }
 
 void GDSConsoleClient::send_query(const std::string& query_str)
@@ -251,11 +234,6 @@ void GDSConsoleClient::onMessageReceived(
 
     save_message(msg);
     switch (msg.dataType) {
-    case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
-    {
-        std::shared_ptr<GdsLoginReplyMessage> body = std::dynamic_pointer_cast<GdsLoginReplyMessage>(msg.messageBody);
-        handleLoginReply(msg, body);
-    } break;
     case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
     {
         std::shared_ptr<GdsEventReplyMessage> body = std::dynamic_pointer_cast<GdsEventReplyMessage>(msg.messageBody);
@@ -295,19 +273,18 @@ std::string GDSConsoleClient::to_hex(const std::string& src)
     return ss.str();
 }
 
-void GDSConsoleClient::handleLoginReply(
-    GdsMessage& /*fullMessage*/,
-    std::shared_ptr<GdsLoginReplyMessage>& loginReply)
+void GDSConsoleClient::onLogin(bool success,std::shared_ptr<GdsLoginReplyMessage> loginReply)
 {
-
-    if (loginReply->ackStatus == 200) {
+    loginReplySemaphore.notify();
+    if (success) {
         std::cout << "Login successful!" << std::endl;
     }
     else {
         std::cout << "Error during the login!" << std::endl;
+        std::cout << loginReply->to_string();
+        throw std::runtime_error("Could not log in to GDS!");
     }
 
-    loginReplySemaphore.notify();
 }
 
 void GDSConsoleClient::handleEventReply(
