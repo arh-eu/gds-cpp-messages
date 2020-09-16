@@ -221,11 +221,12 @@ std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::conn
 
 ### Callbacks
 
-The client communicates with callbacks since it runs on a separate thread. You can specify your own callback function for the interface. It has four public members for this:
+The client communicates with callbacks since it runs on a separate thread. You can specify your own callback function for the interface. It has five public members for this:
 ```cpp
 struct GDSInterface {
   //...
   std::function<void()> on_open;
+  std::function<void(bool,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>)> on_login;
   std::function<void(gds_lib::gds_types::GdsMessage &)> on_message;
   std::function<void(int, const std::string&)> on_close;
   std::function<void(int, const std::string&)> on_error;
@@ -248,6 +249,13 @@ mGDSInterface->on_error   = [](int code, const std::string& reason) {
 	std::cout << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
 };
 
+mGDSInterface->on_login   = [](bool success, std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage> message) {
+  if(success) {
+    std::cout << "Login successful!" << std::endl;
+  }else{
+    std::cout << "Could not log in! Details:" << message->to_string() << std::endl;
+  }
+};
 
 mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
 	std::cout << "I received a message!" << std::endl;
@@ -256,7 +264,7 @@ mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
 
 ### Starting the client
 To start your client you should simply invoke the `start()` method. This will initialize and create the WebSocket connection to the GDS.
-Keep in mind that this does not send the login message, that is done by manually if you use the SDK.
+This method will automatically send the login message once the Websocket connection is open. The login reply is noted on the `on_login` callback. The `bool` value marks whether the received ACK was an `OK (200)` status. If not, the message will contain the error details. You should not send any messages before you receive the login ACK, otherwise the GDS will drop your connection if the authentication process did not finish before your next message arrived.
 
 ```cpp
 mGDSInterface->start();
@@ -362,47 +370,52 @@ However, you want to have different logic based on the message type you received
 
 ```cpp
 mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
-    switch (msg.dataType) {
-    case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
-        //This is a login reply message.
-        break;
+  
+  switch (msg.dataType) {
+      case gds_lib::gds_types::GdsMsgType::EVENT_REPLY: // Type 3
+      {
 
-    case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
-        //This is an event reply.
-    	 break;
-    //... rest of the cases, as neccessary.
-    default:
-    	break;
-    }
+      } break;
+      case gds_lib::gds_types::GdsMsgType::ATTACHMENT_REQUEST_REPLY: // Type 5
+      {
+        
+      } break;
+      case gds_lib::gds_types::GdsMsgType::ATTACHMENT: // Type 6
+      {
+        
+      } break;
+      case gds_lib::gds_types::GdsMsgType::QUERY_REPLY: // Type 11
+      {
+          
+      } break;
+      default:
+
+          break;
+  }
 };
 ```
 
 The data part itself is simply represented as a `Packable` pointer, therefore you have to check its type and cast it before you can process it. Usually you want to have separate functions for these processings. These do not need to be lambda expressions, you can invoke regular functions obviously.
 
 ```cpp
-auto handleLoginReply = [](
+auto handleQueryReply = [](
     GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
-    std::shared_ptr<GdsLoginReplyMessage>& loginReply)
+    std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage>& queryReply)
 {
-    if (loginReply->ackStatus == 200)
-    {
-        std::cout << "Login successful!" << std::endl;
-    }
-    else
-    {
-        std::cout << "Error during the login!" << std::endl;
-    }
+    std::cout << "CLIENT received a SELECT reply message! ";
+    std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
+    std::cout << "Message is: " << queryReply->to_string() << std::endl;
 };
 
-mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+  mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
     switch (msg.dataType) {
-    case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
-        //This is a login reply message.
+    //... rest of the cases
+    case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
+    {
+        std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> body = std::dynamic_pointer_cast<gds_lib::gds_types::GdsQueryReplyMessage>(msg.messageBody);
+        handleQueryReply(msg, body);
+    } break;
 
-        std::shared_ptr<GdsLoginReplyMessage> login_body = std::dynamic_pointer_cast<GdsLoginReplyMessage>(msg.messageBody);
-        //process it as you wish. The ConsoleClient will invoke the following function:
-        handleLoginReply(msg, login_body);
-        break;
     }
 };
 ```
