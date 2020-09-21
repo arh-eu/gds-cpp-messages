@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -406,6 +407,8 @@ void GDSConsoleClient::handleQueryReply(
 
 void GDSConsoleClient::save_binary(const std::vector<std::uint8_t>& binary_data, std::string& filename, const std::string& mimetype)
 {
+
+    std::filesystem::create_directory("attachments");
     std::cout << "Saving binary attachment.." << std::endl;
     std::string extension = ".unknown";
     if (mimetype == "image/png") {
@@ -436,6 +439,8 @@ void GDSConsoleClient::save_binary(const std::vector<std::uint8_t>& binary_data,
 
 void GDSConsoleClient::save_message(gds_lib::gds_types::GdsMessage& fullMessage)
 {
+    std::filesystem::create_directory("exports");
+
     std::string filename = "exports/";
     filename += fullMessage.messageId;
     filename += ".txt";
