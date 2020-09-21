@@ -58,9 +58,10 @@ cd gds-cpp-sdk
 mkdir build
 cd build
 cmake ..
+make
 make install
 ```
-This will create a folder named `output` in your project root folder, containing two other folders - the `lib` folder inside will contain the static version for the GDS SDK (this `gdslib.a` file will be used for our console client).
+This will create a folder named `output` in your project root folder, containing two other folders - the `lib` folder inside will contain the static version for the GDS SDK (this `libgds.a` file will be used for our console client).
 
 The `include` folder contains the header files which should be used. These use the standard C++ headers and the `<msgpack.hpp>` for the MessagePack structures.
 
