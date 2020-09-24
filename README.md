@@ -181,8 +181,10 @@ These binaries are generated from the files you specify with the `-attachments` 
 
 ##### INSERT
 
+The following command assumes that there is a folder named 'attachments' next to the exe file with a file named `attachment_id_1.bmp`. 
+
 ```sh
-./gds_console_client.exe -event "INSERT INTO multi_event (id, images) VALUES('EVNT2006241023125470', array('ATID2006241023125470')); INSERT INTO \"multi_event-@attachment\" (id, meta, data) VALUES('ATID2006241023125470', 'image/bmp', 0x70696374757265312e626d70 )" -attachments picture1.bmp
+./gds_console_client.exe -event "INSERT INTO multi_event (id, images) VALUES('EVNT2006241023125470', array('ATID2006241023125470')); INSERT INTO \"multi_event-@attachment\" (id, meta, data) VALUES('ATID2006241023125470', 'image/bmp', 0x6174746163686d656e745f69645f312e626d70 )" -attachments "attachment_id_1.bmp"
 ```
 
 ##### UPDATE
