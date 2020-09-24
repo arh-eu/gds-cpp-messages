@@ -236,10 +236,22 @@ If you want to use `UUID`s for message ID, you can use the `gds_uuid.hpp` header
 
 ### Creating the Client
 
-You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has two overloads depending on if you want to use TLS security or not. If not, the only argument that should be passed is the GDS gate url (fe. `192.168.111.222:8888/gate`).
+You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has three overloads depending on the authentication, you want to use. If you do not want to use any authentication, you should pass only two arguments: the GDS gate url (fe. `192.168.111.222:8888/gate`) and the username ("user").
 
 ```cpp
-std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate");
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate", "user");
+```
+
+If you want to use password authentication, you should pass the password argument too.
+
+```cpp
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate", "user", "password");
+```
+
+If you want to use encrypted connection, you can also login by using TLS. In this case you should add the name of the certification file (it should be in PKCS12 format - a `*.p12`), and the password that was used to generate and encrypt the cert file.
+
+```cpp
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.222.111:8443/gates", "user", "my_cert_file.p12", "password_for_cert");
 ```
 
 ### Callbacks
