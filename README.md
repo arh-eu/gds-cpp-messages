@@ -3,9 +3,11 @@
 - [Console Client](#console-client)
   * [Compiling](#compiling)
   * [Options](#options)
+    + [Help](#help)
     + [URL](#url)
     + [Username](#username)
     + [Password](#password)
+    + [Cert, secret](#cert-secret)
     + [Timeout](#timeout)
     + [HEX conversion](#hex-conversion)
   * [Messages](#messages)
@@ -86,12 +88,20 @@ make
 
 To customize your client with the basic options, you should use the command line arguments.
 
+##### Help
+
+If you need help about the usage, the syntax can be printed by the -help flag.
+
+```shell
+./gds_console_client.exe -help
+```
+
 #### URL
 
 The URL of the GDS is given by the `-url` flag. The URL should be given _without_ the scheme. If not specified, `127.0.0.1:8888/gate` will be used (assuming a local GDS instance / simulator).
 
 ```sh
-./gds_console_client.exe -url "192.168.111.222:8888/gate"
+./gds_console_client.exe -url "192.168.111.222:8888/gate" -query "SELECT * FROM multi_event"
 ```
 
 #### Username
@@ -99,7 +109,7 @@ The URL of the GDS is given by the `-url` flag. The URL should be given _without
 The username can be specified with the `-username` flag. By default, `"user"` will be used.
 
 ```sh
-./gds_console_client.exe -username "other_user"
+./gds_console_client.exe -username "other_user" -query "SELECT * FROM multi_event"
 ```
 
 #### Password
@@ -107,7 +117,17 @@ The username can be specified with the `-username` flag. By default, `"user"` wi
 If you want to use password authentication, your password should be set with the `-password` flag.
 
 ```sh
-./gds_console_client.exe -username "some_user" -password "my_password"
+./gds_console_client.exe -username "some_user" -password "my_password" -query "SELECT * FROM multi_event"
+```
+
+#### Cert, secret
+
+The name of the file containing the certificate chain and your private key that should be used for secure (TLS) connection to the GDS should be given by the -cert option (it should be in PKCS12 format - a `*.p12`). The GDS uses different port (and endpoint) for default and for encrypted connection, therefore the url should be specified as well.
+
+The password that was used to generate and encrypt the cert file should be given by the -secret flag.
+
+```sh
+./gds_console_client.exe -url "192.168.222.111:8443/gates" -cert "my_cert_file.p12" -secret "password_for_cert" -query "SELECT * FROM multi_event"
 ```
 
 #### Timeout
@@ -115,7 +135,7 @@ If you want to use password authentication, your password should be set with the
 The timeout of your requests can be set by the `-timeout` flag, in seconds. If you do not specify it, `30` will be used by default.
 
 ```sh
-./gds_console_client.exe -timeout 10
+./gds_console_client.exe -timeout 10 -query "SELECT * FROM multi_event"
 ```
 
 #### HEX conversion
