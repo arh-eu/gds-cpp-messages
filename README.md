@@ -442,7 +442,7 @@ auto handleQueryReply = [](
     std::cout << "Message is: " << queryReply->to_string() << std::endl;
 };
 
-  mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+  mGDSInterface->on_message = [handleQueryReply](gds_lib::gds_types::GdsMessage &msg) {
     switch (msg.dataType) {
     //... rest of the cases
     case gds_lib::gds_types::GdsMsgType::QUERY_REPLY: // Type 11
