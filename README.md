@@ -383,7 +383,7 @@ selectBody->selectString = "SELECT * FROM multi_event";
 selectBody->consistency = "PAGES";
 selectBody->timeout = 0; //using GDS's default timeout
 
-fullMessage.dataType = GdsMsgType::QUERY;
+fullMessage.dataType = gds_lib::gds_types::GdsMsgType::QUERY;
 fullMessage.messageBody = selectBody;
 ```
 
@@ -434,7 +434,7 @@ The data part itself is simply represented as a `Packable` pointer, therefore yo
 
 ```cpp
 auto handleQueryReply = [](
-    GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
+    gds_lib::gds_types::GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
     std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage>& queryReply)
 {
     std::cout << "CLIENT received a SELECT reply message! ";
@@ -445,7 +445,7 @@ auto handleQueryReply = [](
   mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
     switch (msg.dataType) {
     //... rest of the cases
-    case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
+    case gds_lib::gds_types::GdsMsgType::QUERY_REPLY: // Type 11
     {
         std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> body = std::dynamic_pointer_cast<gds_lib::gds_types::GdsQueryReplyMessage>(msg.messageBody);
         handleQueryReply(msg, body);
@@ -460,13 +460,13 @@ auto handleQueryReply = [](
 You simply need to read a file and attach it as `std::vector<std::uint8_t>` to the messages. Do not forget that they should be stored with their hex IDs in the event map.
 
 ```cpp
-    std::shared_ptr<GdsEventMessage> eventBody(new GdsEventMessage());
+    std::shared_ptr<gds_lib::gds_types::GdsEventMessage> eventBody(new gds_lib::gds_types::GdsEventMessage());
 
 	//some proper EVENT SQL string should be used based on what you want to insert/update.
     eventBody->operations = "";
 
     //this map is used to store the binaries
-    std::map<std::string, byte_array> binaries;
+    std::map<std::string, gds_lib::gds_types::byte_array> binaries;
 
     //the file is opened as binary for reading.
     //you can seek its end automatically to get the number of bytes in it 
@@ -503,18 +503,18 @@ As defined in the [Attachment Request ACK Wiki](https://github.com/arh-eu/gds/wi
 Note however, that these messages should be ACKd with an [Attachment Response ACK](https://github.com/arh-eu/gds/wiki/Message-Data#attachment-response-ack---data-type-7). An example for this can be seen here:
 
 ```cpp
-std::shared_ptr<GdsAttachmentResponseMessage> replyBody; //received from the GDS
+std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage> replyBody; //received from the GDS
 
-AttachmentResult result = replyBody->result;
+gds_lib::gds_types::AttachmentResult result = replyBody->result;
 //This result contains the attachment(s).
 //The ACK should include what you received and if they got successfully stored.
 
 
-GdsMessage fullMessage;
+gds_lib::gds_types::GdsMessage fullMessage;
 //message headers set up as needed
 
-fullMessage.dataType = GdsMsgType::ATTACHMENT_REPLY;
-std::shared_ptr<GdsAttachmentResponseResultMessage> requestBody(new GdsAttachmentResponseResultMessage());
+fullMessage.dataType = gds_lib::gds_types::GdsMsgType::ATTACHMENT_REPLY;
+std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseResultMessage> requestBody(new gds_lib::gds_types::GdsAttachmentResponseResultMessage());
 {
     requestBody->ackStatus = 200;
     requestBody->response = {};
@@ -548,17 +548,17 @@ fclose(output);
 
 The query message will query only the first page. If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
 ```cpp
- std::shared_ptr<GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
+ std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
 if (queryReply->response) {
 	//process the rest as needed.
 
 	if (queryReply->response->hasMorePages) {
 
-        GdsMessage fullMessage;
-        //setup as needed
+            gds_lib::gds_types::GdsMessage fullMessage;
+            //setup as needed
 
-	    fullMessage.dataType = GdsMsgType::GET_NEXT_QUERY;
-	    std::shared_ptr<GdsNextQueryRequestMessage> selectBody(new GdsNextQueryRequestMessage());
+	    fullMessage.dataType = gds_lib::gds_types::GdsMsgType::GET_NEXT_QUERY;
+	    std::shared_ptr<gds_lib::gds_types::GdsNextQueryRequestMessage> selectBody(new gds_lib::gds_types::GdsNextQueryRequestMessage());
 	    {
 	        selectBody->contextDescriptor = queryReply->response->queryContextDescriptor;
 	        selectBody->timeout = 0;
