@@ -143,9 +143,9 @@ The timeout of your requests can be set by the `-timeout` flag, in seconds. If y
 The `-hex` flag will convert the given string(s) to hexadecimal format. If you want to use multiple values, you should use semicolon (`;`) as separator in your string. The console client will print the values without connection.
 
 ```sh
-./gds_console_client.exe -hex "picture1.png;image2.bmp"
-The hex value of 'picture1.png' is: 0x70696374757265312e706e67
-The hex value of 'image2.bmp' is: 0x696d616765322e626d70
+./gds_console_client.exe -hex "attachment_id_1.bmp;attachment_id_1.png"
+The hex value of 'attachment_id_1.bmp' is: 0x6174746163686d656e745f69645f312e626d70
+The hex value of 'attachment_id_1.png' is: 0x6174746163686d656e745f69645f312e706e67
 ```
 
 
@@ -162,9 +162,9 @@ The attachment ID has the same restriction, the difference is the prefix. Instea
 Since the format is these messages have to follow is very strict, you will have to use hex values in your event strings for the binary IDs of your attachments. These hex values are unique identifiers for your binaries. To get the hex value of a string you can use the console client with the `-hex `flag to print these values. You can also enter multiple names, separating them by semicolon (`;`):
 
 ```sh
-./gds_console_client.exe -hex "picture1.png;image2.bmp"
-The hex value of 'picture1.png' is: 0x70696374757265312e706e67
-The hex value of 'image2.bmp' is: 0x696d616765322e626d70
+./gds_console_client.exe -hex "attachment_id_1.bmp;attachment_id_1.png"
+The hex value of 'attachment_id_1.bmp' is: 0x6174746163686d656e745f69645f312e626d70
+The hex value of 'attachment_id_1.png' is: 0x6174746163686d656e745f69645f312e706e67
 ```
 
 These binary IDs (with the 0x prefix) have to be in your EVENT SQL string.
