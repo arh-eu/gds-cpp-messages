@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -170,18 +171,10 @@ void GDSConsoleClient::send_event(const std::string& event_str, const std::strin
                 std::string filepath = "attachments/";
                 filepath += filename;
 
-                std::basic_ifstream<std::uint8_t> file(filepath, std::ios::binary | std::ios::ate);
+                
+                std::fstream file(filename.c_str(), std::ios::binary | std::ios::in);
                 if (file.is_open()) {
-                    auto pos = file.tellg();
-
-                    byte_array content;
-                    content.reserve(pos);
-                    std::cout << "Reserved " << pos << " bytes" << std::endl;
-
-                    file.seekg(0, std::ios::beg);
-                    content.resize(pos);
-                    file.read(content.data(), pos);
-
+                    byte_array content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
                     binaries[GDSConsoleClient::to_hex(filename)] = content;
                     std::cout << "Adding " << filename << " as an attachment.." << std::endl;
                 }
