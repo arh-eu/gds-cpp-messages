@@ -3,9 +3,11 @@
 - [Console Client](#console-client)
   * [Compiling](#compiling)
   * [Options](#options)
+    + [Help](#help)
     + [URL](#url)
     + [Username](#username)
     + [Password](#password)
+    + [Cert, secret](#cert-secret)
     + [Timeout](#timeout)
     + [HEX conversion](#hex-conversion)
   * [Messages](#messages)
@@ -86,12 +88,20 @@ make
 
 To customize your client with the basic options, you should use the command line arguments.
 
+##### Help
+
+If you need help about the usage, the syntax can be printed by the -help flag.
+
+```shell
+./gds_console_client.exe -help
+```
+
 #### URL
 
 The URL of the GDS is given by the `-url` flag. The URL should be given _without_ the scheme. If not specified, `127.0.0.1:8888/gate` will be used (assuming a local GDS instance / simulator).
 
 ```sh
-./gds_console_client.exe -url "192.168.111.222:8888/gate"
+./gds_console_client.exe -url "192.168.111.222:8888/gate" -query "SELECT * FROM multi_event"
 ```
 
 #### Username
@@ -99,7 +109,7 @@ The URL of the GDS is given by the `-url` flag. The URL should be given _without
 The username can be specified with the `-username` flag. By default, `"user"` will be used.
 
 ```sh
-./gds_console_client.exe -username "other_user"
+./gds_console_client.exe -username "other_user" -query "SELECT * FROM multi_event"
 ```
 
 #### Password
@@ -107,7 +117,17 @@ The username can be specified with the `-username` flag. By default, `"user"` wi
 If you want to use password authentication, your password should be set with the `-password` flag.
 
 ```sh
-./gds_console_client.exe -username "some_user" -password "my_password"
+./gds_console_client.exe -username "some_user" -password "my_password" -query "SELECT * FROM multi_event"
+```
+
+#### Cert, secret
+
+The name of the file containing the certificate chain and your private key that should be used for secure (TLS) connection to the GDS should be given by the -cert option (it should be in PKCS12 format - a `*.p12`). The GDS uses different port (and endpoint) for default and for encrypted connection, therefore the url should be specified as well.
+
+The password that was used to generate and encrypt the cert file should be given by the -secret flag.
+
+```sh
+./gds_console_client.exe -url "192.168.222.111:8443/gates" -cert "my_cert_file.p12" -secret "password_for_cert" -query "SELECT * FROM multi_event"
 ```
 
 #### Timeout
@@ -115,7 +135,7 @@ If you want to use password authentication, your password should be set with the
 The timeout of your requests can be set by the `-timeout` flag, in seconds. If you do not specify it, `30` will be used by default.
 
 ```sh
-./gds_console_client.exe -timeout 10
+./gds_console_client.exe -timeout 10 -query "SELECT * FROM multi_event"
 ```
 
 #### HEX conversion
@@ -123,9 +143,9 @@ The timeout of your requests can be set by the `-timeout` flag, in seconds. If y
 The `-hex` flag will convert the given string(s) to hexadecimal format. If you want to use multiple values, you should use semicolon (`;`) as separator in your string. The console client will print the values without connection.
 
 ```sh
-./gds_console_client.exe -hex "picture1.png;image2.bmp"
-The hex value of 'picture1.png' is: 0x70696374757265312e706e67
-The hex value of 'image2.bmp' is: 0x696d616765322e626d70
+./gds_console_client.exe -hex "attachment_id_1.bmp;attachment_id_1.png"
+The hex value of 'attachment_id_1.bmp' is: 0x6174746163686d656e745f69645f312e626d70
+The hex value of 'attachment_id_1.png' is: 0x6174746163686d656e745f69645f312e706e67
 ```
 
 
@@ -142,9 +162,9 @@ The attachment ID has the same restriction, the difference is the prefix. Instea
 Since the format is these messages have to follow is very strict, you will have to use hex values in your event strings for the binary IDs of your attachments. These hex values are unique identifiers for your binaries. To get the hex value of a string you can use the console client with the `-hex `flag to print these values. You can also enter multiple names, separating them by semicolon (`;`):
 
 ```sh
-./gds_console_client.exe -hex "picture1.png;image2.bmp"
-The hex value of 'picture1.png' is: 0x70696374757265312e706e67
-The hex value of 'image2.bmp' is: 0x696d616765322e626d70
+./gds_console_client.exe -hex "attachment_id_1.bmp;attachment_id_1.png"
+The hex value of 'attachment_id_1.bmp' is: 0x6174746163686d656e745f69645f312e626d70
+The hex value of 'attachment_id_1.png' is: 0x6174746163686d656e745f69645f312e706e67
 ```
 
 These binary IDs (with the 0x prefix) have to be in your EVENT SQL string.
@@ -161,8 +181,10 @@ These binaries are generated from the files you specify with the `-attachments` 
 
 ##### INSERT
 
+The following command assumes that there is a folder named 'attachments' next to the exe file with a file named `attachment_id_1.bmp`. 
+
 ```sh
-./gds_console_client.exe -event "INSERT INTO multi_event (id, images) VALUES('EVNT2006241023125470', array('ATID2006241023125470')); INSERT INTO \"multi_event-@attachment\" (id, meta, data) VALUES('ATID2006241023125470', 'image/bmp', 0x70696374757265312e626d70 )" -attachments picture1.bmp
+./gds_console_client.exe -event "INSERT INTO multi_event (id, images) VALUES('EVNT2006241023125470', array('ATID2006241023125470')); INSERT INTO \"multi_event-@attachment\" (id, meta, data) VALUES('ATID2006241023125470', 'image/bmp', 0x6174746163686d656e745f69645f312e626d70 )" -attachments "attachment_id_1.bmp"
 ```
 
 ##### UPDATE
@@ -214,10 +236,22 @@ If you want to use `UUID`s for message ID, you can use the `gds_uuid.hpp` header
 
 ### Creating the Client
 
-You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has two overloads depending on if you want to use TLS security or not. If not, the only argument that should be passed is the GDS gate url (fe. `192.168.111.222:8888/gate`).
+You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has three overloads depending on the authentication, you want to use. If you do not want to use any authentication, you should pass only two arguments: the GDS gate url (fe. `192.168.111.222:8888/gate`) and the username ("user").
 
 ```cpp
-std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate");
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate", "user");
+```
+
+If you want to use password authentication, you should pass the password argument too.
+
+```cpp
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate", "user", "password");
+```
+
+If you want to use encrypted connection, you can also login by using TLS. In this case you should add the name of the certification file (it should be in PKCS12 format - a `*.p12`), and the password that was used to generate and encrypt the cert file.
+
+```cpp
+std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.222.111:8443/gates", "user", "my_cert_file.p12", "password_for_cert");
 ```
 
 ### Callbacks
@@ -349,7 +383,7 @@ selectBody->selectString = "SELECT * FROM multi_event";
 selectBody->consistency = "PAGES";
 selectBody->timeout = 0; //using GDS's default timeout
 
-fullMessage.dataType = GdsMsgType::QUERY;
+fullMessage.dataType = gds_lib::gds_types::GdsMsgType::QUERY;
 fullMessage.messageBody = selectBody;
 ```
 
@@ -400,7 +434,7 @@ The data part itself is simply represented as a `Packable` pointer, therefore yo
 
 ```cpp
 auto handleQueryReply = [](
-    GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
+    gds_lib::gds_types::GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
     std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage>& queryReply)
 {
     std::cout << "CLIENT received a SELECT reply message! ";
@@ -408,10 +442,10 @@ auto handleQueryReply = [](
     std::cout << "Message is: " << queryReply->to_string() << std::endl;
 };
 
-  mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
+  mGDSInterface->on_message = [handleQueryReply](gds_lib::gds_types::GdsMessage &msg) {
     switch (msg.dataType) {
     //... rest of the cases
-    case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
+    case gds_lib::gds_types::GdsMsgType::QUERY_REPLY: // Type 11
     {
         std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> body = std::dynamic_pointer_cast<gds_lib::gds_types::GdsQueryReplyMessage>(msg.messageBody);
         handleQueryReply(msg, body);
@@ -426,13 +460,13 @@ auto handleQueryReply = [](
 You simply need to read a file and attach it as `std::vector<std::uint8_t>` to the messages. Do not forget that they should be stored with their hex IDs in the event map.
 
 ```cpp
-    std::shared_ptr<GdsEventMessage> eventBody(new GdsEventMessage());
+    std::shared_ptr<gds_lib::gds_types::GdsEventMessage> eventBody(new gds_lib::gds_types::GdsEventMessage());
 
 	//some proper EVENT SQL string should be used based on what you want to insert/update.
     eventBody->operations = "";
 
     //this map is used to store the binaries
-    std::map<std::string, byte_array> binaries;
+    std::map<std::string, gds_lib::gds_types::byte_array> binaries;
 
     //the file is opened as binary for reading.
     //you can seek its end automatically to get the number of bytes in it 
@@ -469,18 +503,18 @@ As defined in the [Attachment Request ACK Wiki](https://github.com/arh-eu/gds/wi
 Note however, that these messages should be ACKd with an [Attachment Response ACK](https://github.com/arh-eu/gds/wiki/Message-Data#attachment-response-ack---data-type-7). An example for this can be seen here:
 
 ```cpp
-std::shared_ptr<GdsAttachmentResponseMessage> replyBody; //received from the GDS
+std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage> replyBody; //received from the GDS
 
-AttachmentResult result = replyBody->result;
+gds_lib::gds_types::AttachmentResult result = replyBody->result;
 //This result contains the attachment(s).
 //The ACK should include what you received and if they got successfully stored.
 
 
-GdsMessage fullMessage;
+gds_lib::gds_types::GdsMessage fullMessage;
 //message headers set up as needed
 
-fullMessage.dataType = GdsMsgType::ATTACHMENT_REPLY;
-std::shared_ptr<GdsAttachmentResponseResultMessage> requestBody(new GdsAttachmentResponseResultMessage());
+fullMessage.dataType = gds_lib::gds_types::GdsMsgType::ATTACHMENT_REPLY;
+std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseResultMessage> requestBody(new gds_lib::gds_types::GdsAttachmentResponseResultMessage());
 {
     requestBody->ackStatus = 200;
     requestBody->response = {};
@@ -514,17 +548,17 @@ fclose(output);
 
 The query message will query only the first page. If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
 ```cpp
- std::shared_ptr<GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
+ std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
 if (queryReply->response) {
 	//process the rest as needed.
 
 	if (queryReply->response->hasMorePages) {
 
-        GdsMessage fullMessage;
-        //setup as needed
+            gds_lib::gds_types::GdsMessage fullMessage;
+            //setup as needed
 
-	    fullMessage.dataType = GdsMsgType::GET_NEXT_QUERY;
-	    std::shared_ptr<GdsNextQueryRequestMessage> selectBody(new GdsNextQueryRequestMessage());
+	    fullMessage.dataType = gds_lib::gds_types::GdsMsgType::GET_NEXT_QUERY;
+	    std::shared_ptr<gds_lib::gds_types::GdsNextQueryRequestMessage> selectBody(new gds_lib::gds_types::GdsNextQueryRequestMessage());
 	    {
 	        selectBody->contextDescriptor = queryReply->response->queryContextDescriptor;
 	        selectBody->timeout = 0;
