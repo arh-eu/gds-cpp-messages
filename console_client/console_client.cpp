@@ -172,7 +172,7 @@ void GDSConsoleClient::send_event(const std::string& event_str, const std::strin
                 filepath += filename;
 
                 
-                std::fstream file(filename.c_str(), std::ios::binary | std::ios::in);
+                std::fstream file(filepath.c_str(), std::ios::binary | std::ios::in);
                 if (file.is_open()) {
                     byte_array content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
                     binaries[GDSConsoleClient::to_hex(filename)] = content;
@@ -180,6 +180,7 @@ void GDSConsoleClient::send_event(const std::string& event_str, const std::strin
                 }
                 else {
                     std::cout << "Could not open the attachment file named '" << filename << "'!";
+                    throw new std::runtime_error();
                 }
             }
 
