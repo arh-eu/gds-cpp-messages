@@ -179,8 +179,11 @@ void GDSConsoleClient::send_event(const std::string& event_str, const std::strin
                     std::cout << "Adding " << filename << " as an attachment.." << std::endl;
                 }
                 else {
-                    std::cout << "Could not open the attachment file named '" << filename << "'!";
-                    throw new std::runtime_error();
+                    std::string error_message = "Could not open the attachment file named '";
+                    error_message.append(filename);
+                    error_message.append("'!");
+                    std::cout << error_message << '\n';
+                    throw std::runtime_error(error_message);
                 }
             }
 
