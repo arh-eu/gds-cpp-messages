@@ -471,15 +471,9 @@ You simply need to read a file and attach it as `std::vector<std::uint8_t>` to t
     //the file is opened as binary for reading.
     //you can seek its end automatically to get the number of bytes in it 
     //therefore making the vector insertion faster to avoid size duplication and moving during reading.
-    std::basic_ifstream<std::uint8_t> file(filename, std::ios::binary | std::ios::ate);
-    auto pos = file.tellg();
-
-    std::vector<std::uint8_t> content;
-    content.reserve(pos);
-
-    file.seekg(0, std::ios::beg);
-    content.resize(pos);
-    file.read(content.data(), pos);
+	
+	std::fstream file(filename.c_str(), std::ios::binary | std::ios::in);
+	std::vector<uint8_t> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     //the content is stored as a hex ID in the map from the filename
 	std::stringstream ss;
