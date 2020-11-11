@@ -34,6 +34,7 @@
   * [Handling errors](#handling-errors)
   * [Field types](#field-types)
   * [Closing the client](#closing-the-client)
+  * [Connection errors](#connection-errors)
   * [Implementation-defined behaviours](#implementation-defined-behaviours)
   * [Multi-threading](#multi-threading)
 
@@ -132,7 +133,7 @@ The password that was used to generate and encrypt the cert file should be given
 
 #### Timeout
 
-The timeout of your requests can be set by the `-timeout` flag, in seconds. If you do not specify it, `30` will be used by default.
+The timeout of your requests can be set by the `-timeout` flag, in seconds. If you do not specify it, `3` will be used by default.
 
 ```sh
 ./gds_console_client.exe -timeout 10 -query "SELECT * FROM multi_event"
@@ -228,7 +229,7 @@ It is possible, that your query has more than one pages available. By default, o
 The code is separated into 3 different header files. The GDS Message types are declared in the `gds_types.hpp` file.
 The core functions for communication can be found in the `gds_connection.hpp` header.
 
-A `semaphore.hpp` is also added. This is not needed for user created applications, but our console client uses them.
+A `semaphore.hpp` is also added. This is not needed for user created applications, but our console client uses them. Another utility class is the `CountDownLatch`, which is used similar to a semaphore - also for the console client.
 
 Please note that the usual `ws://` or `wss://` prefix is _not_ needed in the URL (it will lead to a connection refusal as the `SimpleWebSocketClient` expects the URL without the scheme).
 
@@ -236,73 +237,110 @@ If you want to use `UUID`s for message ID, you can use the `gds_uuid.hpp` header
 
 ### Creating the Client
 
-You can obtain a pointer for the implementation object by calling the static `gds_lib::connection::GDSInterface::create(..)` method. This has three overloads depending on the authentication, you want to use. If you do not want to use any authentication, you should pass only two arguments: the GDS gate url (fe. `192.168.111.222:8888/gate`) and the username ("user").
+You can obtain a pointer for the implementation object through the `gds_lib::connection::GDSBuilder` class.
+
+You can specify the desired username, password, timeout, URI and callbacks through this to make things easier. Since the messages are sent and received asnychronously, you also have to specify a shared pointer for the interface responsible to handle the incoming messages (see below).
 
 ```cpp
-std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate", "user");
+gds_lib::connection::GDSBuilder builder;
+std::shared_ptr<gds_lib::connection::GDSInterface> client = builder
+    .with_uri("192.168.111.222:8888/gate")
+    .with_username("some_user")
+    .with_callbacks(callbacks)
+    .build();
 ```
 
 If you want to use password authentication, you should pass the password argument too.
 
 ```cpp
-std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.111.222:8888/gate", "user", "password");
+gds_lib::connection::GDSBuilder builder;
+std::shared_ptr<gds_lib::connection::GDSInterface> client = builder
+    .with_uri("192.168.111.222:8888/gate")
+    .with_username("some_user")
+    .with_password("my_password")
+    .with_callbacks(callbacks)
+    .build();
 ```
-
-If you want to use encrypted connection, you can also login by using TLS. In this case you should add the name of the certification file (it should be in PKCS12 format - a `*.p12`), and the password that was used to generate and encrypt the cert file.
 
 ```cpp
-std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface = gds_lib::connection::GDSInterface::create("192.168.222.111:8443/gates", "user", "my_cert_file.p12", "password_for_cert");
+
+class MyHandler : public gds_lib::connection::GDSMessageListener {
+  //...
+};
+
+gds_lib::connection::GDSBuilder builder;
+std::shared_ptr<MyHandler> callbacks = std::make_shared<MyHandler>();
+
+std::shared_ptr<gds_lib::connection::GDSInterface> client = builder
+    .with_uri("192.168.111.222:8888/gate")
+    .with_username("some_user")
+    .with_callbacks(callbacks)
+    .with_tls(std::make_pair("cert_file.p12", "€3RT_P4$Sw0RĐ"))
+    .build();
 ```
+
 
 ### Callbacks
 
-The client communicates with callbacks since it runs on a separate thread. You can specify your own callback function for the interface. It has five public members for this:
+The client communicates with callbacks since it runs on a separate thread. Your callback functions should be inherit the `GDSMessageListener` interface in the `gds_lib::connection` namespace. By default the implementation is the following:
 ```cpp
-struct GDSInterface {
-  //...
-  std::function<void()> on_open;
-  std::function<void(bool,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>)> on_login;
-  std::function<void(gds_lib::gds_types::GdsMessage &)> on_message;
-  std::function<void(int, const std::string&)> on_close;
-  std::function<void(int, const std::string&)> on_error;
-  //...
-};
-```
+struct GDSMessageListener {
+  virtual ~GDSMessageListener(){}
 
-Your client code simply has to assign a value for these after you create the client:
+  //using gds_message_t = std::shared_ptr<gds_lib::gds_types::GdsMessage>;
+  virtual void on_connection_success(gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>){}
+  virtual void on_disconnect(){}
+  virtual void on_connection_failure(const std::optional<gds_lib::connection::connection_error>&, std::optional<std::pair<gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>>>){
+      throw not_implemented_error{"Connection failure handler was not overridden!", "GDSMessageListener::on_connection_failure()"};
+  }
 
-```cpp
-mGDSInterface->on_open    = [](){
-	std::cout << "Client is open!" << std::endl;
-};
+  virtual void on_event_ack3(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsEventReplyMessage> event_ack){
+      throw not_implemented_error{"Received an Event ACK 3 but the method was not overridden!", "GDSMessageListener::on_event_ack3()"};
+  }
 
-mGDSInterface->on_close   = [](int status, const std::string& reason){
-		std::cout << "Client closed: " << reason << " (status: " <<  status << ")" << std::endl;
-};
+  virtual void on_attachment_request4(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestMessage> request){
+      throw not_implemented_error{"Received an Attachment Request 4 but the method was not overridden!", "GDSMessageListener::on_attachment_request4()"};
+  }
 
-mGDSInterface->on_error   = [](int code, const std::string& reason) {
-	std::cout << "WebSocket returned error: " << reason << " (error code: " <<  code << ")" << std::endl;
-};
+  virtual void on_attachment_request_ack5(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage> request_ack){
+      throw not_implemented_error{"Received an Attachment Request ACK 5 but the method was not overridden!", "GDSMessageListener::on_attachment_request_ack5()"};
+  }
 
-mGDSInterface->on_login   = [](bool success, std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage> message) {
-  if(success) {
-    std::cout << "Login successful!" << std::endl;
-  }else{
-    std::cout << "Could not log in! Details:" << message->to_string() << std::endl;
+  virtual void on_attachment_response6(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage> response){
+      throw not_implemented_error{"Received an Attachment Response 6 but the method was not overridden!", "GDSMessageListener::on_attachment_response6()"};
+  }
+
+ virtual void on_attachment_response_ack7(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseResultMessage> response_ack){
+      throw not_implemented_error{"Received an Attachment Response ACK 7 but the method was not overridden!", "GDSMessageListener::on_attachment_response_ack7()"};
+  }
+
+  virtual void on_event_document8(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsEventDocumentMessage> event_document){
+      throw not_implemented_error{"Received an Event Document 8 but the method was not overridden!", "GDSMessageListener::on_event_document8()"};
+  }
+
+  virtual void on_event_document_ack9(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsEventDocumentReplyMessage> event_document_ack){
+      throw not_implemented_error{"Received an Event Document ACK 9 but the method was not overridden!", "GDSMessageListener::on_event_document_ack9()"};
+  }
+
+  virtual void on_query_request_ack11(gds_lib::gds_types::gds_message_t, std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> query_ack){
+      throw not_implemented_error{"Received a Query Reply ACK 11 but the method was not overridden!", "GDSMessageListener::on_query_request_ack11()"};
   }
 };
-
-mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
-	std::cout << "I received a message!" << std::endl;
-};
 ```
+
+This means that if your methods are called without providing an override for the appropriate message type, they will throw an exception.
+
+You have to pass a shared pointer for this object to the builder (see above).
+
 
 ### Starting the client
 To start your client you should simply invoke the `start()` method. This will initialize and create the WebSocket connection to the GDS.
-This method will automatically send the login message once the Websocket connection is open. The login reply is noted on the `on_login` callback. The `bool` value marks whether the received ACK was an `OK (200)` status. If not, the message will contain the error details. You should not send any messages before you receive the login ACK, otherwise the GDS will drop your connection if the authentication process did not finish before your next message arrived.
+This method will automatically send the login message once the Websocket connection is open. If your login is successful, the `on_connection_success()` method will be invoked. Otherwise, if any error happens or the login process fails, you will be notified on the `on_connection_failure`. This has two optional methods, because the error might come from an exception during the connection (timeout) or your login request could have been declined.
+
+ You should not send any messages before the connection is successfully established, otherwise the GDS will drop your connection if the authentication process did not finish before your next message arrived.
 
 ```cpp
-mGDSInterface->start();
+client->start();
 ```	
 
 ### Creating a message
@@ -377,7 +415,7 @@ A `SELECT` query can be created by the following:
 
 
 ```cpp
-std::shared_ptr<gds_lib::gds_types::GdsQueryRequestMessage> selectBody(new gds_lib::gds_types::GdsQueryRequestMessage());
+std::shared_ptr<gds_lib::gds_types::GdsQueryRequestMessage> selectBody = std::make_shared<gds_lib::gds_types::GdsQueryRequestMessage>();
 
 selectBody->selectString = "SELECT * FROM multi_event";
 selectBody->consistency = "PAGES";
@@ -399,59 +437,17 @@ mGDSInterface->send(fullMessage);
 
 ### Handling the reply
 
-The message the GDS sends you is received by the GDSInterface, which will invoke the `on_message(..)` callback function (if) you have specified (it) at the initialization.
-
-However, you want to have different logic based on the message type you received. This is done by checking the `dataType` field in the message.
-
+The message the GDS sends you is received by the GDSInterface, which will invoke the specific `on_(..)` callback function in your listener.
 ```cpp
-mGDSInterface->on_message = [](gds_lib::gds_types::GdsMessage &msg) {
-  
-  switch (msg.dataType) {
-      case gds_lib::gds_types::GdsMsgType::EVENT_REPLY: // Type 3
-      {
+class MyHandler : public gds_lib::connection::GDSMessageListener {
+  //rest of the methods
 
-      } break;
-      case gds_lib::gds_types::GdsMsgType::ATTACHMENT_REQUEST_REPLY: // Type 5
-      {
-        
-      } break;
-      case gds_lib::gds_types::GdsMsgType::ATTACHMENT: // Type 6
-      {
-        
-      } break;
-      case gds_lib::gds_types::GdsMsgType::QUERY_REPLY: // Type 11
-      {
-          
-      } break;
-      default:
-
-          break;
+  virtual void GDSConsoleClient::on_query_request_ack11(gds_lib::gds_types::gds_message_t,
+      std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> queryReply) override
+  {
+      std::cout << "I received a SELECT reply message! The SELECT result is: \n" << queryReply->to_string() << std::endl;
   }
-};
-```
 
-The data part itself is simply represented as a `Packable` pointer, therefore you have to check its type and cast it before you can process it. Usually you want to have separate functions for these processings. These do not need to be lambda expressions, you can invoke regular functions obviously.
-
-```cpp
-auto handleQueryReply = [](
-    gds_lib::gds_types::GdsMessage& /*fullMessage*/, //if you need the full message as well you can pass it as well.
-    std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage>& queryReply)
-{
-    std::cout << "CLIENT received a SELECT reply message! ";
-    std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
-    std::cout << "Message is: " << queryReply->to_string() << std::endl;
-};
-
-  mGDSInterface->on_message = [handleQueryReply](gds_lib::gds_types::GdsMessage &msg) {
-    switch (msg.dataType) {
-    //... rest of the cases
-    case gds_lib::gds_types::GdsMsgType::QUERY_REPLY: // Type 11
-    {
-        std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> body = std::dynamic_pointer_cast<gds_lib::gds_types::GdsQueryReplyMessage>(msg.messageBody);
-        handleQueryReply(msg, body);
-    } break;
-
-    }
 };
 ```
 
@@ -460,34 +456,35 @@ auto handleQueryReply = [](
 You simply need to read a file and attach it as `std::vector<std::uint8_t>` to the messages. Do not forget that they should be stored with their hex IDs in the event map.
 
 ```cpp
-    std::shared_ptr<gds_lib::gds_types::GdsEventMessage> eventBody(new gds_lib::gds_types::GdsEventMessage());
+  std::shared_ptr<gds_lib::gds_types::GdsEventMessage> eventBody = std::make_shared<gds_lib::gds_types::GdsEventMessage>();
 
 	//some proper EVENT SQL string should be used based on what you want to insert/update.
-    eventBody->operations = "";
+  eventBody->operations = "";
 
-    //this map is used to store the binaries
-    std::map<std::string, gds_lib::gds_types::byte_array> binaries;
+  //this map is used to store the binaries
+  std::map<std::string, gds_lib::gds_types::byte_array> binaries;
 
-    //the file is opened as binary for reading.
-    //you can seek its end automatically to get the number of bytes in it 
-    //therefore making the vector insertion faster to avoid size duplication and moving during reading.
+  //the file is opened as binary for reading.
+  //you can seek its end automatically to get the number of bytes in it 
+  //therefore making the vector insertion faster to avoid size duplication and moving during reading.
 	
 	std::fstream file(filename.c_str(), std::ios::binary | std::ios::in);
 	std::vector<uint8_t> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-    //the content is stored as a hex ID in the map from the filename
+  //the content is stored as a hex ID in the map from the filename
 	std::stringstream ss;
 	for (auto ch : filename) {
 	    ss << std::hex << (int)ch;
 	}
 	std::string hex_filename = ss.str();
 
-    binaries[hex_filename] = content;
+  binaries[hex_filename] = content; 
 
-    //assigning the content to the event message
-    eventBody->binaryContents = binaries;
+  //assigning the content to the event message
+  eventBody->binaryContents = binaries;
 
-    //send or add additional things if you would like
+  //send or add additional things if you would like
+  client->send(fullMessage);
 ```
 
 ### Attachment requests / response
@@ -508,7 +505,7 @@ gds_lib::gds_types::GdsMessage fullMessage;
 //message headers set up as needed
 
 fullMessage.dataType = gds_lib::gds_types::GdsMsgType::ATTACHMENT_REPLY;
-std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseResultMessage> requestBody(new gds_lib::gds_types::GdsAttachmentResponseResultMessage());
+std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseResultMessage> requestBody = std::make_shared<gds_lib::gds_types::GdsAttachmentResponseResultMessage>();
 {
     requestBody->ackStatus = 200;
     requestBody->response = {};
@@ -519,7 +516,7 @@ std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseResultMessage> requestB
 }
 
 fullMessage.messageBody = requestBody;
-mGDSInterface->send(fullMessage);
+client->send(fullMessage);
 
 ```
 
@@ -533,7 +530,7 @@ std::vector<std::uint8_t> binary_data;  // = result.attachment.value();
 
 //the file should be opened for writing in binary mode.
 //you can use std::ofstream as well if you like.
-FILE* output = fopen("my_attachment", "wb");
+std::FILE* output = fopen("my_attachment", "wb");
 fwrite(binary_data.data(), sizeof(std::uint8_t), binary_data.size(), output);
 fclose(output);
 ```
@@ -543,23 +540,24 @@ fclose(output);
 The query message will query only the first page. If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
 ```cpp
  std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
+
 if (queryReply->response) {
 	//process the rest as needed.
 
 	if (queryReply->response->hasMorePages) {
 
-            gds_lib::gds_types::GdsMessage fullMessage;
-            //setup as needed
+      gds_lib::gds_types::GdsMessage fullMessage;
+      //setup as needed
 
 	    fullMessage.dataType = gds_lib::gds_types::GdsMsgType::GET_NEXT_QUERY;
-	    std::shared_ptr<gds_lib::gds_types::GdsNextQueryRequestMessage> selectBody(new gds_lib::gds_types::GdsNextQueryRequestMessage());
+	    std::shared_ptr<gds_lib::gds_types::GdsNextQueryRequestMessage> selectBody = std::make_shared<gds_lib::gds_types::GdsNextQueryRequestMessage>();
 	    {
 	        selectBody->contextDescriptor = queryReply->response->queryContextDescriptor;
 	        selectBody->timeout = 0;
 	    }
 	    fullMessage.messageBody = selectBody;
 
-	    mGDSInterface->send(fullMessage);
+	    client->send(fullMessage);
     }
 }
 else {
@@ -671,9 +669,20 @@ GdsFieldValue obj;
 If you no longer need the client, you should invoke the `close()` method, which sends the standard close message for the WebSocket connection. The destructor also invokes this if it was not closed yet, however, you probably do not want to keep the connection open if it is not needed anymore.
 
 ```cpp
-mGDSInterface->close();
+client->close();
 ```
 
+### Connection errors 
+
+If the connection could not be established for some reason, your callback will be invoked with the status message received from the underlying WebSocket API.
+The messages can be checked under the [Boost API's Core Error Codes](https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference.html).
+
+```cpp
+void MyHandler::on_connection_failure(const std::optional<gds_lib::connection::connection_error>& e, 
+        std::optional<std::pair<gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>>> reply) {
+    //handle login errors 
+}
+```
 
 ### Implementation-defined behaviours
 

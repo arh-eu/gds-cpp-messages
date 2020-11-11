@@ -33,7 +33,7 @@ SOURCE_FILES = main.cpp console_client.cpp
 OUTPUT_DIR = .
 
 all: $(OUTPUT_DIR) $(SOURCE_FILES) 
-	$(CXX) $(CXX_FLAGS) $(SOURCE_FILES) $(ASIO_DECL) -o $(OUTPUT_DIR)/$(NAME) $(LD_FLAGS)
+	$(CXX) -g $(CXX_FLAGS) $(SOURCE_FILES) $(ASIO_DECL) -o $(OUTPUT_DIR)/$(NAME) $(LD_FLAGS)
 
 .PHONY: clean
 clean: 

@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.10)
 
 project(gds_lib)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-unused-parameter")
 
 file(GLOB SOURCES "src/gds_types.cpp" "src/gds_connection.cpp")
-file(GLOB HEADERS "src/gds_connection.hpp" "src/gds_types.hpp" "src/semaphore.hpp" "src/gds_uuid.hpp")
+file(GLOB HEADERS "src/gds_connection.hpp" "src/gds_types.hpp" "src/semaphore.hpp" "src/countdownlatch.hpp" "src/gds_uuid.hpp")
 
 add_library(gds STATIC ${SOURCES})
 

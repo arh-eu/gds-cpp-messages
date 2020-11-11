@@ -122,6 +122,8 @@ namespace gds_types {
         std::string to_string() const override;
     };
 
+    using gds_message_t = std::shared_ptr<GdsMessage>;
+
     class invalid_message_error : public std::exception {
     private:
         GdsMsgType::Enum m_type;

@@ -31,13 +31,17 @@ int main(int argc, char* argv[])
         }
         else if (parser.has_commands()) {
             std::cout << "Argument parsing successful, starting GDS client.." << std::endl;
+            std::shared_ptr<GDSConsoleClient> client;
             try {
-                GDSConsoleClient client(parser);
-                client.run();
+                client = std::make_shared<GDSConsoleClient>(parser);
+                client->run();
             }
             catch (const std::exception& e) {
-                std::cout << e.what() << std::endl;
+                std::cout << "Error is: " <<  e.what() << std::endl;
             }
+            if(client){
+                client->close();
+            }   
         }
     }
     else {

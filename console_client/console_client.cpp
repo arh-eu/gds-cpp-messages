@@ -16,35 +16,11 @@ using namespace gds_lib;
 using namespace gds_lib::gds_types;
 
 GDSConsoleClient::GDSConsoleClient(const ArgParser& _args)
-    : args(_args)
-    , connection_open(false)
+    : args(_args), login_success(false)
 {
-
     timeout = std::stoul(args.get_arg("timeout")) * 1000;
     std::cout << "Timeout is set to " << args.get_arg("timeout") << " seconds" << std::endl;
-    std::cout << "Setting up ConsoleClient.." << std::endl;
 
-    if(args.has_arg("cert") && args.has_arg("secret"))
-    {
-        mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("username"), args.get_arg("cert"), args.get_arg("secret"));
-    }
-    else
-    {        
-        if(args.has_arg("password")){
-            mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("username"), args.get_arg("password"));
-        }
-        else{
-            mGDSInterface = gds_lib::connection::GDSInterface::create(args.get_arg("url"), args.get_arg("username"));
-        }
-    }
-
-    mGDSInterface->on_open = std::bind(&GDSConsoleClient::onOpen, this);
-    mGDSInterface->on_close = std::bind(&GDSConsoleClient::onClose, this, std::placeholders::_1, std::placeholders::_2);
-    mGDSInterface->on_message = std::bind(&GDSConsoleClient::onMessageReceived, this, std::placeholders::_1);
-    mGDSInterface->on_error = std::bind(&GDSConsoleClient::onError, this, std::placeholders::_1, std::placeholders::_2);
-    mGDSInterface->on_login = std::bind(&GDSConsoleClient::onLogin, this, std::placeholders::_1, std::placeholders::_2);
-
-    setupConnection();
 }
 
 GDSConsoleClient::~GDSConsoleClient() { close(); }
@@ -60,8 +36,7 @@ void GDSConsoleClient::close()
 int64_t GDSConsoleClient::now()
 {
     using namespace std::chrono;
-    return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-        .count();
+    return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
 void GDSConsoleClient::setupConnection()
@@ -69,45 +44,53 @@ void GDSConsoleClient::setupConnection()
     std::cout << "Initializing WebSocket connection.." << std::endl;
     mGDSInterface->start();
     if (!connectionReady.wait_for(timeout)) {
-        throw new std::runtime_error("Timeout passed while waiting for connection setup!");
-    }
-
-    if (connection_open.load()) {
-        std::cout << "WebSocket connection with GDS successful!" << std::endl;
-        std::cout << "Awaiting login ACK.." << std::endl;
-        if (!loginReplySemaphore.wait_for(timeout)) {
-            throw new std::runtime_error("Timeout passed while waiting for login reply!");
-        }
-        else {
-            std::cout << "Login ACK received!" << std::endl;
-        }
+        throw std::runtime_error("Timeout passed while waiting for connection setup!");
     }
 }
 
 void GDSConsoleClient::run()
 {
-    if (connection_open.load()) {
-        if (args.has_arg("query") || args.has_arg("queryall")) {
-            std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
-            query_all = args.has_arg("queryall");
-            send_query(query_string);
-        }
-        else if (args.has_arg("event")) {
-            std::string event_string = args.get_arg("event");
-            std::string file_list;
-            if (args.has_arg("files")) {
-                file_list = args.get_arg("files");
-            }
-            send_event(event_string, file_list);
-        }
-        else if (args.has_arg("attachment")) {
-            std::string attach_string = args.get_arg("attachment");
-            send_attachment_request(attach_string);
-        }
+    std::cout << "Setting up ConsoleClient.." << std::endl;
+    gds_lib::connection::GDSBuilder builder;
 
-        if (!workDone.wait_for(timeout)) {
-            std::cout << "The GDS did not send its message in time!" << std::endl;
+    builder.with_uri(args.get_arg("url")).with_username(args.get_arg("username")).with_timeout(timeout).with_callbacks(shared_from_this());
+
+    if(args.has_arg("cert") && args.has_arg("secret"))
+    {
+        builder.with_tls(std::make_pair(args.get_arg("cert"), args.get_arg("secret")));
+    }
+
+    if(args.has_arg("password")){
+        builder.with_password(args.get_arg("password"));
+    }
+    mGDSInterface = builder.build();
+    setupConnection();
+
+    if(!login_success){
+        return;
+    }
+
+
+    if (args.has_arg("query") || args.has_arg("queryall")) {
+        std::string query_string = args.has_arg("query") ? args.get_arg("query") : args.get_arg("queryall");
+        query_all = args.has_arg("queryall");
+        send_query(query_string);
+    }
+    else if (args.has_arg("event")) {
+        std::string event_string = args.get_arg("event");
+        std::string file_list;
+        if (args.has_arg("files")) {
+            file_list = args.get_arg("files");
         }
+        send_event(event_string, file_list);
+    }
+    else if (args.has_arg("attachment")) {
+        std::string attach_string = args.get_arg("attachment");
+        send_attachment_request(attach_string);
+    }
+
+    if (!workDone.wait_for(timeout)) {
+        std::cout << "The GDS did not send its message in time!" << std::endl;
     }
 }
 
@@ -226,42 +209,6 @@ gds_lib::gds_types::GdsMessage GDSConsoleClient::create_default_message()
     return fullMessage;
 }
 
-void GDSConsoleClient::onMessageReceived(
-    gds_lib::gds_types::GdsMessage& msg)
-{
-
-    save_message(msg);
-    switch (msg.dataType) {
-    case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
-    {
-        std::shared_ptr<GdsEventReplyMessage> body = std::dynamic_pointer_cast<GdsEventReplyMessage>(msg.messageBody);
-        handleEventReply(msg, body);
-    } break;
-    case gds_types::GdsMsgType::ATTACHMENT_REQUEST_REPLY: // Type 5
-    {
-        std::shared_ptr<GdsAttachmentRequestReplyMessage> body = std::dynamic_pointer_cast<GdsAttachmentRequestReplyMessage>(
-            msg.messageBody);
-        handleAttachmentRequestReply(msg, body);
-    } break;
-    case gds_types::GdsMsgType::ATTACHMENT: // Type 6
-    {
-        std::shared_ptr<GdsAttachmentResponseMessage> body = std::dynamic_pointer_cast<GdsAttachmentResponseMessage>(
-            msg.messageBody);
-        handleAttachmentResponse(msg, body);
-    } break;
-        break;
-    case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
-    {
-        std::shared_ptr<GdsQueryReplyMessage> body = std::dynamic_pointer_cast<GdsQueryReplyMessage>(msg.messageBody);
-        handleQueryReply(msg, body);
-    } break;
-        break;
-    default:
-
-        break;
-    }
-}
-
 std::string GDSConsoleClient::to_hex(const std::string& src)
 {
     std::stringstream ss;
@@ -271,23 +218,14 @@ std::string GDSConsoleClient::to_hex(const std::string& src)
     return ss.str();
 }
 
-void GDSConsoleClient::onLogin(bool success,std::shared_ptr<GdsLoginReplyMessage> loginReply)
+void GDSConsoleClient::on_connection_success(gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>)
 {
-    loginReplySemaphore.notify();
-    if (success) {
-        std::cout << "Login successful!" << std::endl;
-    }
-    else {
-        std::cout << "Error during the login!" << std::endl;
-        std::cout << loginReply->to_string();
-        throw std::runtime_error("Could not log in to GDS!");
-    }
-
+    login_success = true;
+    connectionReady.notify();
 }
 
-void GDSConsoleClient::handleEventReply(
-    GdsMessage& fullMessage,
-    std::shared_ptr<GdsEventReplyMessage>& eventReply)
+void GDSConsoleClient::on_event_ack3(gds_lib::gds_types::gds_message_t fullMessage,
+    std::shared_ptr<GdsEventReplyMessage> eventReply)
 {
     // do whatever you want to do with this.
 
@@ -296,13 +234,12 @@ void GDSConsoleClient::handleEventReply(
               << std::endl;
 
     std::cout << "Full message:" << std::endl;
-    std::cout << fullMessage.to_string() << std::endl;
+    std::cout << fullMessage->to_string() << std::endl;
     workDone.notify();
 }
 
-void GDSConsoleClient::handleAttachmentRequestReply(
-    gds_lib::gds_types::GdsMessage&,
-    std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage>& replyBody)
+void GDSConsoleClient::on_attachment_request_ack5(gds_lib::gds_types::gds_message_t,
+    std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage> replyBody)
 {
     std::cout << "CLIENT received an AttachmentRequestReply message! "
               << std::endl;
@@ -337,9 +274,8 @@ void GDSConsoleClient::handleAttachmentRequestReply(
     }
 }
 
-void GDSConsoleClient::handleAttachmentResponse(
-    gds_lib::gds_types::GdsMessage&,
-    std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage>& replyBody)
+void GDSConsoleClient::on_attachment_response6(gds_lib::gds_types::gds_message_t,
+    std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage> replyBody)
 {
     std::cout << "CLIENT received an AttachmentResponse message! "
               << std::endl;
@@ -381,9 +317,8 @@ void GDSConsoleClient::handleAttachmentResponse(
     workDone.notify();
 }
 
-void GDSConsoleClient::handleQueryReply(
-    GdsMessage& /* fullMessage*/,
-    std::shared_ptr<GdsQueryReplyMessage>& queryReply)
+void GDSConsoleClient::on_query_request_ack11(gds_lib::gds_types::gds_message_t,
+    std::shared_ptr<GdsQueryReplyMessage> queryReply)
 {
     std::cout << "CLIENT received a SELECT reply message! ";
     std::cout << "SELECT status code is: " << queryReply->ackStatus << std::endl;
@@ -451,26 +386,12 @@ void GDSConsoleClient::save_message(gds_lib::gds_types::GdsMessage& fullMessage)
     }
 }
 
-void GDSConsoleClient::onError(int code, const std::string& reason)
-{
-    std::cerr << "WebSocket returned error: " << reason << " (error code: " << code << ")" << std::endl;
-    if (code == 111 || code == 2) {
-        connection_open.store(false);
-        connectionReady.notify();
-        workDone.notify();
+void GDSConsoleClient::on_connection_failure(const std::optional<gds_lib::connection::connection_error>& e, 
+        std::optional<std::pair<gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>>> reply) {
+    std::cerr << "Could not login!" << std::endl;
+    if(e){
+        std::cerr << e->what() << std::endl;
     }
-}
-
-void GDSConsoleClient::onOpen()
-{
-    connection_open.store(true);
     connectionReady.notify();
-}
-
-void GDSConsoleClient::onClose(int code, const std::string& reason)
-{
-    std::cerr << "WebSocket closed: " << reason << " (code: " << code << ")" << std::endl;
-    connection_open.store(false);
-    connectionClosed.notify();
     workDone.notify();
 }

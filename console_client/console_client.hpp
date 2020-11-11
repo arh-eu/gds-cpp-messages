@@ -12,23 +12,19 @@
 #include <mutex>
 #include <exception>
 
-class GDSConsoleClient {
+class GDSConsoleClient : public gds_lib::connection::GDSMessageListener, public std::enable_shared_from_this<GDSConsoleClient> {
+    
     std::shared_ptr<gds_lib::connection::GDSInterface> mGDSInterface;
 
-    binary_semaphore_t loginReplySemaphore;
-
     binary_semaphore_t workDone;
-
     binary_semaphore_t connectionReady;
-    binary_semaphore_t connectionClosed;
 
     ArgParser args;
 
     unsigned long timeout;
-    std::atomic_bool connection_open;
 
     bool query_all;
-
+    bool login_success;
     std::string message_id;
 
 public:
@@ -55,24 +51,23 @@ private:
     gds_lib::gds_types::GdsMessage create_default_message();
 
     gds_lib::gds_types::QueryContextDescriptor contextDescriptor;
-    void
-    handleEventReply(gds_lib::gds_types::GdsMessage&,
-        std::shared_ptr<gds_lib::gds_types::GdsEventReplyMessage>&);
-    void handleAttachmentRequestReply(
-        gds_lib::gds_types::GdsMessage&,
-        std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage>&);
-    void handleAttachmentResponse(
-        gds_lib::gds_types::GdsMessage&,
-        std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage>&);
-    void
-    handleQueryReply(gds_lib::gds_types::GdsMessage&,
-        std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage>&);
 
-    void onOpen();
-    void onClose(int, const std::string&);
-    void onMessageReceived(gds_lib::gds_types::GdsMessage&);
-    void onError(int, const std::string&);
-    void onLogin(bool success,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>);
+    virtual void on_connection_success(gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>) override;
+
+    virtual void on_connection_failure(const std::optional<gds_lib::connection::connection_error>&, 
+        std::optional<std::pair<gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>>>) override;
+
+    virtual void on_event_ack3(gds_lib::gds_types::gds_message_t,
+        std::shared_ptr<gds_lib::gds_types::GdsEventReplyMessage>) override;
+
+    virtual void on_attachment_request_ack5(gds_lib::gds_types::gds_message_t,
+        std::shared_ptr<gds_lib::gds_types::GdsAttachmentRequestReplyMessage>) override;
+
+    virtual void on_attachment_response6(gds_lib::gds_types::gds_message_t,
+        std::shared_ptr<gds_lib::gds_types::GdsAttachmentResponseMessage>) override;
+    
+    virtual void on_query_request_ack11(gds_lib::gds_types::gds_message_t,
+        std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage>) override;
 };
 
 #endif //CONSOLE_CLIENT_HPP

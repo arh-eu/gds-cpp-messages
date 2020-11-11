@@ -145,43 +145,43 @@ void GdsMessage::unpack(const msgpack::object &object) {
 
   switch (dataType) {
   case gds_types::GdsMsgType::LOGIN: // Type 0
-  messageBody.reset(new GdsLoginMessage());
+  messageBody = std::make_shared<GdsLoginMessage>();
   break;
   case gds_types::GdsMsgType::LOGIN_REPLY: // Type 1
-  messageBody.reset(new GdsLoginReplyMessage());
+  messageBody = std::make_shared<GdsLoginReplyMessage>();
   break;
   case gds_types::GdsMsgType::EVENT: // Type 2
-  messageBody.reset(new GdsEventMessage());
+  messageBody = std::make_shared<GdsEventMessage>();
   break;
   case gds_types::GdsMsgType::EVENT_REPLY: // Type 3
-  messageBody.reset(new GdsEventReplyMessage());
+  messageBody = std::make_shared<GdsEventReplyMessage>();
   break;
   case gds_types::GdsMsgType::ATTACHMENT_REQUEST: // Type 4
-  messageBody.reset(new GdsAttachmentRequestMessage());
+  messageBody = std::make_shared<GdsAttachmentRequestMessage>();
   break;
   case gds_types::GdsMsgType::ATTACHMENT_REQUEST_REPLY: // Type 5
-  messageBody.reset(new GdsAttachmentRequestReplyMessage());
+  messageBody = std::make_shared<GdsAttachmentRequestReplyMessage>();
   break;
   case gds_types::GdsMsgType::ATTACHMENT: // Type 6
-  messageBody.reset(new GdsAttachmentResponseMessage());
+  messageBody = std::make_shared<GdsAttachmentResponseMessage>();
   break;
   case gds_types::GdsMsgType::ATTACHMENT_REPLY: // Type 7
-  messageBody.reset(new GdsAttachmentResponseResultMessage());
+  messageBody = std::make_shared<GdsAttachmentResponseResultMessage>();
   break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT: // Type 8
-  messageBody.reset(new GdsEventDocumentMessage());
+  messageBody = std::make_shared<GdsEventDocumentMessage>();
   break;
   case gds_types::GdsMsgType::EVENT_DOCUMENT_REPLY: // Type 9
-  messageBody.reset(new GdsEventDocumentReplyMessage());
+  messageBody = std::make_shared<GdsEventDocumentReplyMessage>();
   break;
   case gds_types::GdsMsgType::QUERY: // Type 10
-  messageBody.reset(new GdsQueryRequestMessage());
+  messageBody = std::make_shared<GdsQueryRequestMessage>();
   break;
   case gds_types::GdsMsgType::QUERY_REPLY: // Type 11
-  messageBody.reset(new GdsQueryReplyMessage());
+  messageBody = std::make_shared<GdsQueryReplyMessage>();
   break;
   case gds_types::GdsMsgType::GET_NEXT_QUERY: // Type 12
-  messageBody.reset(new GdsNextQueryRequestMessage());
+  messageBody = std::make_shared<GdsNextQueryRequestMessage>();
   break;
   default:
   messageBody.reset();

@@ -25,7 +25,7 @@ public:
         , argv(_argv)
     {
         m_values["username"] = "user";
-        m_values["timeout"] = "30";
+        m_values["timeout"] = "3";
         m_values["url"] = "127.0.0.1:8888/gate";
     }
 
