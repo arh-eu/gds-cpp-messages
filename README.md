@@ -76,6 +76,8 @@ The Console Client gives you an easy way to communicate with the GDS without hav
 
 It has built-in support for commonly used messages, like _events, attachments_ or _queries_.
 
+It is also useful if you want to create your own client but need some help or guidelines to start. In this case, simply check its source.
+
 ### Compiling
 
 To compile the Console Client, you should use the makefile in the `console_client` folder. This will create an executable named `gds_console_client.exe` that you can run.
@@ -231,7 +233,7 @@ The core functions for communication can be found in the `gds_connection.hpp` he
 
 A `semaphore.hpp` is also added. This is not needed for user created applications, but our console client uses them. Another utility class is the `CountDownLatch`, which is used similar to a semaphore - also for the console client.
 
-Please note that the usual `ws://` or `wss://` prefix is _not_ needed in the URL (it will lead to a connection refusal as the `SimpleWebSocketClient` expects the URL without the scheme).
+Please note that the usual `ws://` or `wss://` prefix is _not_ needed in the URL (it will lead to a connection refusal as the `SimpleWebSocketClient` expects the URL without the scheme, as a different constructor call indicates the TLS usage).
 
 If you want to use `UUID`s for message ID, you can use the `gds_uuid.hpp` header, which has the `uuid::generate_uuid_v4();` method that returns a random `uuid` formatted string.
 
@@ -261,6 +263,8 @@ std::shared_ptr<gds_lib::connection::GDSInterface> client = builder
     .with_callbacks(callbacks)
     .build();
 ```
+
+To use TLS encryption, the PKCS12 file and the password used to decrypt it should be specified as well.
 
 ```cpp
 
@@ -335,7 +339,7 @@ You have to pass a shared pointer for this object to the builder (see above).
 
 ### Starting the client
 To start your client you should simply invoke the `start()` method. This will initialize and create the WebSocket connection to the GDS.
-This method will automatically send the login message once the Websocket connection is open. If your login is successful, the `on_connection_success()` method will be invoked. Otherwise, if any error happens or the login process fails, you will be notified on the `on_connection_failure`. This has two optional methods, because the error might come from an exception during the connection (timeout) or your login request could have been declined.
+This method will automatically send the login message once the Websocket connection is open. If your login is successful, the `on_connection_success()` method will be invoked. Otherwise, if any error happens or the login process fails, you will be notified on the `on_connection_failure()`. This has two optional methods, because the error might come from an exception during the connection (timeout) or your login request could have been declined.
 
  You should not send any messages before the connection is successfully established, otherwise the GDS will drop your connection if the authentication process did not finish before your next message arrived.
 
@@ -539,7 +543,7 @@ fclose(output);
 
 The query message will query only the first page. If you want to query the next page, simply send a message of type 12 with the ContextDescriptor attached from the previous SELECT ACK.
 ```cpp
- std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> queryReply; //casted from the reply or obtained in some way.
+ std::shared_ptr<gds_lib::gds_types::GdsQueryReplyMessage> queryReply; //obtained from the listener method as a parameter
 
 if (queryReply->response) {
 	//process the rest as needed.
@@ -570,7 +574,7 @@ else {
 ### Saving messages
 
 Every message has the `to_string()` method inherited through the `Packable : Stringable` classes.
-You can use these to save the messages. Binary contents are represented as their size in these, so an image is displayed as `<2852 bytes>` instead of the bytes themselves.
+You can use these to save the messages in a JSON-like format. Binary contents are represented as their size in these, so an image is displayed as `<2852 bytes>` instead of the raw bytes.
 
 ### Handling errors
 
@@ -649,7 +653,7 @@ GdsFieldValue obj;
     {
       std::vector<GdsFieldValue> value = obj.as<std::vector<GdsFieldValue>>();
       //...
-      //first type should be paresd recursively if not empty.
+      //first type should be parsed recursively if not empty.
       //then all can be casted simply with the `as<T>()` call.
     }
     break;
@@ -674,11 +678,13 @@ client->close();
 
 ### Connection errors 
 
-If the connection could not be established for some reason, your callback will be invoked with the status message received from the underlying WebSocket API.
+If the connection could not be established for some reason, your callback will be invoked with the reason, that can be either a status message received from the underlying WebSocket API or a login error.
 The messages can be checked under the [Boost API's Core Error Codes](https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference.html).
 
+Since the error can come from two directions the two types of errors are represented by two `std::optional` values. If your connection failed because of some networking error, the `error` object will have its value filled, otherwise if the connection was fully established but the GDS declined your login request for some reason, the `reply` can be checked to retrieve what happened.
+
 ```cpp
-void MyHandler::on_connection_failure(const std::optional<gds_lib::connection::connection_error>& e, 
+void MyHandler::on_connection_failure(const std::optional<gds_lib::connection::connection_error>& error, 
         std::optional<std::pair<gds_lib::gds_types::gds_message_t,std::shared_ptr<gds_lib::gds_types::GdsLoginReplyMessage>>> reply) {
     //handle login errors 
 }
@@ -686,7 +692,7 @@ void MyHandler::on_connection_failure(const std::optional<gds_lib::connection::c
 
 ### Implementation-defined behaviours
 
-Since the size of the fundamental types (like `int` or `long`) is not specified by the standard but are left implementation-defined, you probably want to avoid using these in messages, and use the exact sized-types like `std::int32_t` and `std::int64_t` found in the `<cstdint>` header (if present on your system). However, if you know your compiler and your system and the size of your types, feel free to use them. Otherwise you might find yourself in an undefined-behaviour that cannot be tracked easily.
+Since the size of the fundamental types (like `int` or `long`) are not specified by the standard but are left implementation-defined, this lib uses the types found in the `<cstdint>` header (like `std::int32_t` and `std::int64_t` for 32/64 bit integers) to ensure compatibility with other libs and reduce the chance of errors. 
 
 ### Multi-threading
 
