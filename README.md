@@ -1,3 +1,4 @@
+- [Version](#version)
 - [Dependencies](#dependencies)
 - [Installation](#installation)
 - [Console Client](#console-client)
@@ -38,6 +39,10 @@
   * [Implementation-defined behaviours](#implementation-defined-behaviours)
   * [Multi-threading](#multi-threading)
 
+## Version
+
+The SDK version is 1.2, as the '@@version' in the underlying database has been changed to String from Long type (from the GDS version 5.2 and above).
+Older SDKs won't be able to receive messages from newer GDS instances.
 
 ## Dependencies
 

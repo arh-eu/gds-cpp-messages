@@ -167,7 +167,7 @@ namespace gds_types {
             std::optional<std::string> id;
             std::optional<std::string> tableName;
             std::optional<bool> created;
-            std::optional<int64_t> version;
+            std::optional<std::string> version;
             std::optional<std::vector<GdsFieldValue> > values;
             std::string to_string() const override;
         };

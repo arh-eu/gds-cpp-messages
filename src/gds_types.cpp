@@ -418,7 +418,7 @@ void EventReplyBody::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
         packer.pack_nil();
       }
       if (subResult.version.has_value()) {
-        packer.pack_int64(subResult.version.value());
+        packer.pack(subResult.version.value());
       } else {
         packer.pack_nil();
       }
@@ -478,7 +478,7 @@ void EventReplyBody::unpack(const msgpack::object &packer) {
       }
 
       if (subRes.size()>4 && !subRes.at(4).is_nil()) {
-        currentSubResult.version = subRes.at(4).as<int64_t>();
+        currentSubResult.version = subRes.at(4).as<std::string>();
       }
 
       if (subRes.size()>5 && !subRes.at(5).is_nil()) {
