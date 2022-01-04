@@ -1,6 +1,7 @@
 - [Version](#version)
 - [Dependencies](#dependencies)
 - [Installation](#installation)
+- [Docker usage](#docker-usage)
 - [Console Client](#console-client)
   * [Compiling](#compiling)
   * [Options](#options)
@@ -74,6 +75,10 @@ This will create a folder named `output` in your project root folder, containing
 The `include` folder contains the header files which should be used. These use the standard C++ headers and the `<msgpack.hpp>` for the MessagePack structures.
 
 Alternatively, you can compile the source files found in the `src` folder with a compiler that supports the `C++17` standard as well to create the library. You should not forget to link all dependencies with it, otherwise the compilation process will fail.
+
+## Docker usage
+
+The `Dockerfile` in this repository can be used to automatically set up a container for you with all the dependencies installed. With that you do not need to manually setup anything.
 
 ## Console Client
 
