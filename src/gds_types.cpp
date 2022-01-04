@@ -825,7 +825,7 @@ std::string QueryContextDescriptor::to_string() const
 
 void QueryReplyBody::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
   validate();
-  packer.pack_array(6);
+  packer.pack_array(7);
   packer.pack_int64(numberOfHits);
   packer.pack_int64(filteredHits);
   hasMorePages ? packer.pack_true() : packer.pack_false();
@@ -845,6 +845,7 @@ void QueryReplyBody::pack(msgpack::packer<msgpack::sbuffer> &packer) const {
       hit.pack(packer);
     }
   }
+  packer.pack_int64(totalNumberOfHits);
 }
 
 void QueryReplyBody::unpack(const msgpack::object &obj) {
@@ -880,6 +881,10 @@ void QueryReplyBody::unpack(const msgpack::object &obj) {
     }
 
     hits.emplace_back(currenthit);
+    if(items.size() > 6)
+    {
+      totalNumberOfHits = items.at(6).as<int64_t>();
+    }
   }
 
   validate();

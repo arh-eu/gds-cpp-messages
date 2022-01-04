@@ -270,6 +270,7 @@ namespace gds_types {
         QueryContextDescriptor queryContextDescriptor;
         std::vector<field_descriptor> fieldDescriptors;
         std::vector<std::vector<GdsFieldValue> > hits;
+        int64_t totalNumberOfHits;
 
         void pack(msgpack::packer<msgpack::sbuffer>&) const override;
         void unpack(const msgpack::object&) override;
